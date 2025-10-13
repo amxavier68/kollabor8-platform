@@ -1,9 +1,11 @@
-const express = require('express');
-const router = express.Router();
+import express, { Router } from 'express';
 
-const authRoutes = require('./auth.routes');
-const licenseRoutes = require('./license.routes');
-const pluginRoutes = require('./plugin.routes');
+const router: Router = express.Router();
+
+// Import route modules
+import authRoutes from './auth.routes';
+import licenseRoutes from './license.routes';
+// import pluginRoutes from './plugin.routes';
 
 // Version info endpoint
 router.get('/', (req, res) => {
@@ -13,7 +15,6 @@ router.get('/', (req, res) => {
     endpoints: {
       auth: '/api/v1/auth',
       licenses: '/api/v1/licenses',
-      plugins: '/api/v1/plugins'
     },
     documentation: 'https://docs.kollabor8.com/api/v1'
   });
@@ -22,6 +23,6 @@ router.get('/', (req, res) => {
 // Mount routes
 router.use('/auth', authRoutes);
 router.use('/licenses', licenseRoutes);
-router.use('/plugins', pluginRoutes);
+// router.use('/plugins', pluginRoutes);
 
-module.exports = router;
+export default router;
