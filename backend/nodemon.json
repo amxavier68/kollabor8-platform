@@ -2,7 +2,7 @@
   "watch": ["src"],
   "ext": "ts,json",
   "ignore": ["src/**/*.test.ts", "node_modules"],
-  "exec": "ts-node -r tsconfig-paths/register src/server.ts",
+  "exec": "tsx src/server.ts",
   "env": {
     "NODE_ENV": "development"
   }

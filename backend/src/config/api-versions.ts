@@ -1,4 +1,15 @@
-export const apiVersions = {
+interface ApiVersionConfig {
+  status: 'stable' | 'beta' | 'deprecated';
+  deprecated: boolean;
+  sunsetDate: string | null;
+  features: string[];
+}
+
+interface ApiVersions {
+  [key: string]: ApiVersionConfig;
+}
+
+export const apiVersions: ApiVersions = {
   v1: {
     status: 'stable',
     deprecated: false,
@@ -14,3 +25,8 @@ export const apiVersions = {
 };
 
 export const defaultVersion = 'v1';
+
+export const deprecationConfig = {
+  warningPeriod: 90,
+  headers: true
+};
