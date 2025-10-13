@@ -1,0 +1,87 @@
+version: "3.8"
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: kollabor8-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: kollabor8dev
+      MONGO_INITDB_DATABASE: kollabor8_dev
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - kollabor8-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kollabor8-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      MONGODB_URI: mongodb://admin:kollabor8dev@mongodb:27017/kollabor8_dev?authSource=admin
+      JWT_SECRET: dev-secret-change-in-prod
+      WP_API_URL: http://host.docker.internal:80/wordpress/wp-json
+      CORS_ORIGIN: http://localhost:3000,http://localhost:80
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - mongodb
+    networks:
+      - kollabor8-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: npm run dev
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: kollabor8-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:5000
+      REACT_APP_WP_URL: http://localhost/wordpress
+      CHOKIDAR_USEPOLLING: true
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - kollabor8-network
+    command: npm start
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: kollabor8-mongo-express
+    restart: unless-stopped
+    ports:
+      - "8082:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: kollabor8dev
+      ME_CONFIG_MONGODB_URL: mongodb://admin:kollabor8dev@mongodb:27017/
+      ME_CONFIG_BASICAUTH: false
+    depends_on:
+      - mongodb
+    networks:
+      - kollabor8-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  kollabor8-network:
+    driver: bridge
