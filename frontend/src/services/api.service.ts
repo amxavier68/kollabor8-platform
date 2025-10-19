@@ -1,110 +1,163 @@
-import 'reflect-metadata';
-import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { ApiResponse } from '@types/index';
-import { Log, Measure, Cache, Retry, Injectable } from '@decorators/index';
+// frontend/src/services/auth.service.ts
+import { api } from './api.service';
+import type {
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+  RegisterResponse,
+  RefreshTokenResponse,
+  ChangePasswordRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+  TwoFactorSetupResponse,
+  TwoFactorVerifyRequest,
+  UserProfile
+} from '../types';
 
-@Injectable()
-class ApiService {
-  private api: AxiosInstance;
-  private apiVersion: string = 'v1';
+class AuthService {
+  /**
+   * Register a new user
+   */
+  async register(data: RegisterRequest): Promise<RegisterResponse> {
+    const response = await api.post<RegisterResponse>('/auth/register', data);
+    return response.data;
+  }
 
-  constructor() {
-    this.api = axios.create({
-      baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
-      timeout: 15000,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+  /**
+   * Login user (may return 2FA required)
+   */
+  async login(data: LoginRequest): Promise<LoginResponse> {
+    const response = await api.post<LoginResponse>('/auth/login', data);
+    
+    // Store tokens if login successful (no 2FA required)
+    if (response.data.accessToken) {
+      this.setTokens(response.data.accessToken, response.data.refreshToken);
+    }
+    
+    return response.data;
+  }
+
+  /**
+   * Verify 2FA code after login
+   */
+  async verify2FA(data: TwoFactorVerifyRequest): Promise<LoginResponse> {
+    const response = await api.post<LoginResponse>('/auth/2fa/verify', data);
+    
+    if (response.data.accessToken) {
+      this.setTokens(response.data.accessToken, response.data.refreshToken);
+    }
+    
+    return response.data;
+  }
+
+  /**
+   * Refresh access token
+   */
+  async refreshToken(): Promise<RefreshTokenResponse> {
+    const refreshToken = this.getRefreshToken();
+    
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const response = await api.post<RefreshTokenResponse>('/auth/refresh', {
+      refreshToken
     });
 
-    this.setupInterceptors();
+    this.setTokens(response.data.accessToken, response.data.refreshToken);
+    return response.data;
   }
 
-  private setupInterceptors(): void {
-    // Request interceptor
-    this.api.interceptors.request.use(
-      (config: InternalAxiosRequestConfig) => {
-        const token = localStorage.getItem('accessToken');
-        if (token && config.headers) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error: AxiosError) => Promise.reject(error)
-    );
-
-    // Response interceptor
-    this.api.interceptors.response.use(
-      (response) => {
-        // Check for API deprecation warnings
-        const deprecated = response.headers['x-api-deprecated'];
-        if (deprecated === 'true') {
-          console.warn('⚠️ API Deprecation Warning:', {
-            version: this.apiVersion,
-            sunsetDate: response.headers['x-api-sunset-date'],
-            daysLeft: response.headers['x-api-days-until-sunset'],
-            migrationGuide: response.headers['x-api-migration-guide'],
-          });
-        }
-        return response;
-      },
-      async (error: AxiosError<ApiResponse>) => {
-        // Handle 401 errors
-        if (error.response?.status === 401) {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          window.location.href = '/login';
-        }
-        return Promise.reject(error);
+  /**
+   * Logout user
+   */
+  async logout(): Promise<void> {
+    const refreshToken = this.getRefreshToken();
+    
+    try {
+      if (refreshToken) {
+        await api.post('/auth/logout', { refreshToken });
       }
-    );
+    } finally {
+      this.clearTokens();
+    }
   }
 
-  setApiVersion(version: string): void {
-    this.apiVersion = version;
-  }
-
-  private getUrl(endpoint: string): string {
-    return `/api/${this.apiVersion}${endpoint}`;
-  }
-
-  @Log
-  @Measure
-  @Retry(3, 1000)
-  async get<T = any>(endpoint: string, params?: any): Promise<ApiResponse<T>> {
-    const response = await this.api.get<ApiResponse<T>>(this.getUrl(endpoint), { params });
+  /**
+   * Get current user profile
+   */
+  async getProfile(): Promise<UserProfile> {
+    const response = await api.get<UserProfile>('/auth/me');
     return response.data;
   }
 
-  @Log
-  @Measure
-  @Retry(3, 1000)
-  async post<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    const response = await this.api.post<ApiResponse<T>>(this.getUrl(endpoint), data);
+  /**
+   * Change password
+   */
+  async changePassword(data: ChangePasswordRequest): Promise<void> {
+    await api.post('/auth/change-password', data);
+  }
+
+  /**
+   * Request password reset
+   */
+  async forgotPassword(data: ForgotPasswordRequest): Promise<void> {
+    await api.post('/auth/forgot-password', data);
+  }
+
+  /**
+   * Reset password with token
+   */
+  async resetPassword(data: ResetPasswordRequest): Promise<void> {
+    await api.post('/auth/reset-password', data);
+  }
+
+  /**
+   * Verify email with token
+   */
+  async verifyEmail(token: string): Promise<void> {
+    await api.get(`/auth/verify-email/${token}`);
+  }
+
+  /**
+   * Setup 2FA for user account
+   */
+  async setup2FA(): Promise<TwoFactorSetupResponse> {
+    const response = await api.post<TwoFactorSetupResponse>('/auth/2fa/setup');
     return response.data;
   }
 
-  @Log
-  @Measure
-  @Retry(3, 1000)
-  async put<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    const response = await this.api.put<ApiResponse<T>>(this.getUrl(endpoint), data);
-    return response.data;
+  /**
+   * Disable 2FA for user account
+   */
+  async disable2FA(password: string): Promise<void> {
+    await api.post('/auth/2fa/disable', { password });
   }
 
-  @Log
-  @Measure
-  @Retry(3, 1000)
-  async delete<T = any>(endpoint: string): Promise<ApiResponse<T>> {
-    const response = await this.api.delete<ApiResponse<T>>(this.getUrl(endpoint));
-    return response.data;
+  // Token management helpers
+  private setTokens(accessToken: string, refreshToken?: string): void {
+    localStorage.setItem('accessToken', accessToken);
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
   }
 
-  @Cache(60000) // Cache for 1 minute
-  async getHealthStatus(): Promise<ApiResponse> {
-    const response = await this.api.get('/health');
-    return response.data;
+  getAccessToken(): string | null {
+    return localStorage.getItem('accessToken');
+  }
+
+  private getRefreshToken(): string | null {
+    return localStorage.getItem('refreshToken');
+  }
+
+  private clearTokens(): void {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  }
+
+  isAuthenticated(): boolean {
+    return !!this.getAccessToken();
   }
 }
 
-export default new ApiService();
+export const authService = new AuthService();
