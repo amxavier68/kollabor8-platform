@@ -1,148 +1,93 @@
-// frontend/src/services/auth.service.ts
-import { api } from './api.service';
-import type {
-  LoginRequest,
-  LoginResponse,
-  RegisterRequest,
-  RegisterResponse,
-  RefreshTokenResponse,
-  ChangePasswordRequest,
-  ForgotPasswordRequest,
-  ResetPasswordRequest,
-  TwoFactorSetupResponse,
-  TwoFactorVerifyRequest,
-  UserProfile
-} from '../types';
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 
-class AuthService {
-  /**
-   * Register a new user
-   */
-  async register(data: RegisterRequest): Promise<RegisterResponse> {
-    const response = await api.post<RegisterResponse>('/auth/register', data);
-    return response.data;
-  }
+interface ApiError {
+  message: string;
+  code?: string;
+  errors?: Record<string, string[]>;
+}
 
-  /**
-   * Login user (may return 2FA required)
-   */
-  async login(data: LoginRequest): Promise<LoginResponse> {
-    const response = await api.post<LoginResponse>('/auth/login', data);
-    
-    // Store tokens if login successful (no 2FA required)
-    if (response.data.accessToken) {
-      this.setTokens(response.data.accessToken, response.data.refreshToken);
-    }
-    
-    return response.data;
-  }
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_VERSION = import.meta.env.VITE_API_VERSION || 'v1';
 
-  /**
-   * Verify 2FA code after login
-   */
-  async verify2FA(data: TwoFactorVerifyRequest): Promise<LoginResponse> {
-    const response = await api.post<LoginResponse>('/auth/2fa/verify', data);
-    
-    if (response.data.accessToken) {
-      this.setTokens(response.data.accessToken, response.data.refreshToken);
-    }
-    
-    return response.data;
-  }
+class ApiService {
+  private client: AxiosInstance;
+  private refreshPromise: Promise<string> | null = null;
 
-  /**
-   * Refresh access token
-   */
-  async refreshToken(): Promise<RefreshTokenResponse> {
-    const refreshToken = this.getRefreshToken();
-    
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
-    const response = await api.post<RefreshTokenResponse>('/auth/refresh', {
-      refreshToken
+  constructor() {
+    this.client = axios.create({
+      baseURL: `${API_URL}/api/${API_VERSION}`,
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 30000,
     });
-
-    this.setTokens(response.data.accessToken, response.data.refreshToken);
-    return response.data;
+    this.setupInterceptors();
   }
 
-  /**
-   * Logout user
-   */
-  async logout(): Promise<void> {
-    const refreshToken = this.getRefreshToken();
-    
-    try {
-      if (refreshToken) {
-        await api.post('/auth/logout', { refreshToken });
+  private setupInterceptors(): void {
+    this.client.interceptors.request.use(
+      (config: InternalAxiosRequestConfig) => {
+        const token = this.getAccessToken();
+        if (token && config.headers) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    this.client.interceptors.response.use(
+      (response: AxiosResponse) => response,
+      async (error: AxiosError<ApiError>) => {
+        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          try {
+            if (!this.refreshPromise) {
+              this.refreshPromise = this.refreshAccessToken();
+            }
+            const newToken = await this.refreshPromise;
+            this.refreshPromise = null;
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            }
+            return this.client(originalRequest);
+          } catch (refreshError) {
+            this.refreshPromise = null;
+            this.clearTokens();
+            window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+            return Promise.reject(refreshError);
+          }
+        }
+        return Promise.reject(this.normalizeError(error));
       }
-    } finally {
+    );
+  }
+
+  private async refreshAccessToken(): Promise<string> {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) throw new Error('No refresh token available');
+    try {
+      const response = await axios.post(`${API_URL}/api/${API_VERSION}/auth/refresh`, { refreshToken });
+      const { accessToken, refreshToken: newRefreshToken } = response.data;
+      this.setTokens(accessToken, newRefreshToken);
+      return accessToken;
+    } catch (error) {
       this.clearTokens();
+      throw error;
     }
   }
 
-  /**
-   * Get current user profile
-   */
-  async getProfile(): Promise<UserProfile> {
-    const response = await api.get<UserProfile>('/auth/me');
-    return response.data;
+  private normalizeError(error: AxiosError<ApiError>): ApiError {
+    if (error.response?.data) return error.response.data;
+    if (error.request) return { message: 'Network error.', code: 'NETWORK_ERROR' };
+    return { message: error.message || 'Error occurred', code: 'UNKNOWN_ERROR' };
   }
 
-  /**
-   * Change password
-   */
-  async changePassword(data: ChangePasswordRequest): Promise<void> {
-    await api.post('/auth/change-password', data);
-  }
-
-  /**
-   * Request password reset
-   */
-  async forgotPassword(data: ForgotPasswordRequest): Promise<void> {
-    await api.post('/auth/forgot-password', data);
-  }
-
-  /**
-   * Reset password with token
-   */
-  async resetPassword(data: ResetPasswordRequest): Promise<void> {
-    await api.post('/auth/reset-password', data);
-  }
-
-  /**
-   * Verify email with token
-   */
-  async verifyEmail(token: string): Promise<void> {
-    await api.get(`/auth/verify-email/${token}`);
-  }
-
-  /**
-   * Setup 2FA for user account
-   */
-  async setup2FA(): Promise<TwoFactorSetupResponse> {
-    const response = await api.post<TwoFactorSetupResponse>('/auth/2fa/setup');
-    return response.data;
-  }
-
-  /**
-   * Disable 2FA for user account
-   */
-  async disable2FA(password: string): Promise<void> {
-    await api.post('/auth/2fa/disable', { password });
-  }
-
-  // Token management helpers
   private setTokens(accessToken: string, refreshToken?: string): void {
     localStorage.setItem('accessToken', accessToken);
-    if (refreshToken) {
-      localStorage.setItem('refreshToken', refreshToken);
-    }
+    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
   }
 
-  getAccessToken(): string | null {
+  private getAccessToken(): string | null {
     return localStorage.getItem('accessToken');
   }
 
@@ -155,9 +100,29 @@ class AuthService {
     localStorage.removeItem('refreshToken');
   }
 
-  isAuthenticated(): boolean {
-    return !!this.getAccessToken();
+  async get<T>(url: string, config = {}) {
+    return this.client.get<T>(url, config);
+  }
+
+  async post<T>(url: string, data?: any, config = {}) {
+    return this.client.post<T>(url, data, config);
+  }
+
+  async put<T>(url: string, data?: any, config = {}) {
+    return this.client.put<T>(url, data, config);
+  }
+
+  async patch<T>(url: string, data?: any, config = {}) {
+    return this.client.patch<T>(url, data, config);
+  }
+
+  async delete<T>(url: string, config = {}) {
+    return this.client.delete<T>(url, config);
+  }
+
+  getClient(): AxiosInstance {
+    return this.client;
   }
 }
 
-export const authService = new AuthService();
+export const api = new ApiService();
