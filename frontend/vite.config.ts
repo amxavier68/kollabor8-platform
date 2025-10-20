@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
@@ -10,6 +11,7 @@ export default defineConfig({
         plugins: [
           ['@babel/plugin-proposal-decorators', { legacy: true }],
           ['@babel/plugin-proposal-class-properties', { loose: true }],
+          tailwindcss(),
         ]
       }
     })
