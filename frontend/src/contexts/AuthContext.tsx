@@ -1,10 +1,11 @@
+// src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '../services/auth.service';
-import type { 
-  UserProfile, 
-  LoginRequest, 
+import type {
+  UserProfile,
+  LoginRequest,
   RegisterRequest,
-  TwoFactorSetupResponse 
+  TwoFactorSetupResponse,
 } from '../types';
 
 interface AuthState {
@@ -25,9 +26,9 @@ interface AuthContextType extends AuthState {
   disable2FA: (password: string) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | null>(null);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
     isAuthenticated: false,
@@ -36,12 +37,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     tempToken: null,
   });
 
+  // --- Effects ---
   useEffect(() => {
     initializeAuth();
   }, []);
 
   useEffect(() => {
-    const handleUnauthorized = () => {
+    const handleUnauthorized = () =>
       setState({
         user: null,
         isAuthenticated: false,
@@ -49,58 +51,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         requires2FA: false,
         tempToken: null,
       });
-    };
 
     window.addEventListener('auth:unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    return () =>
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, []);
 
+  // --- Auth methods ---
   const initializeAuth = async () => {
     try {
       if (authService.isAuthenticated()) {
         const user = await authService.getProfile();
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           user,
           isAuthenticated: true,
           isLoading: false,
         }));
       } else {
-        setState(prev => ({ ...prev, isLoading: false }));
+        setState((prev) => ({ ...prev, isLoading: false }));
       }
     } catch (error) {
       console.error('Failed to initialize auth:', error);
-      setState(prev => ({ ...prev, isLoading: false }));
+      setState((prev) => ({ ...prev, isLoading: false }));
     }
   };
 
   const login = async (data: LoginRequest) => {
     try {
-      console.log('AuthContext: Calling authService.login...');
       const response = await authService.login(data);
-      console.log('AuthContext: Login response:', response);
-
       if (response.requires2FA) {
-        console.log('AuthContext: 2FA required');
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           requires2FA: true,
           tempToken: response.tempToken || null,
         }));
         return;
       }
-
-      // Use the user from the login response directly
       if (response.user) {
-        console.log('AuthContext: Setting user from login response');
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           user: response.user!,
           isAuthenticated: true,
           requires2FA: false,
           tempToken: null,
         }));
-        console.log('AuthContext: State updated, isAuthenticated=true');
       }
     } catch (error) {
       console.error('AuthContext: Login failed:', error);
@@ -109,45 +104,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const verify2FA = async (code: string) => {
-    try {
-      if (!state.tempToken) {
-        throw new Error('No 2FA session found');
-      }
-
-      const response = await authService.verify2FA({
-        token: state.tempToken,
-        code,
-      });
-
-      if (response.user) {
-        setState(prev => ({
-          ...prev,
-          user: response.user!,
-          isAuthenticated: true,
-          requires2FA: false,
-          tempToken: null,
-        }));
-      }
-    } catch (error) {
-      console.error('2FA verification failed:', error);
-      throw error;
+    if (!state.tempToken) throw new Error('No 2FA session found');
+    const response = await authService.verify2FA({
+      token: state.tempToken,
+      code,
+    });
+    if (response.user) {
+      setState((prev) => ({
+        ...prev,
+        user: response.user!,
+        isAuthenticated: true,
+        requires2FA: false,
+        tempToken: null,
+      }));
     }
   };
 
   const register = async (data: RegisterRequest) => {
-    try {
-      await authService.register(data);
-    } catch (error) {
-      console.error('Registration failed:', error);
-      throw error;
-    }
+    await authService.register(data);
   };
 
   const logout = async () => {
     try {
       await authService.logout();
-    } catch (error) {
-      console.error('Logout failed:', error);
     } finally {
       setState({
         user: null,
@@ -160,34 +139,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshUser = async () => {
-    try {
-      const user = await authService.getProfile();
-      setState(prev => ({ ...prev, user }));
-    } catch (error) {
-      console.error('Failed to refresh user:', error);
-      throw error;
-    }
+    const user = await authService.getProfile();
+    setState((prev) => ({ ...prev, user }));
   };
 
   const setup2FA = async (): Promise<TwoFactorSetupResponse> => {
-    try {
-      const response = await authService.setup2FA();
-      await refreshUser();
-      return response;
-    } catch (error) {
-      console.error('Failed to setup 2FA:', error);
-      throw error;
-    }
+    const response = await authService.setup2FA();
+    await refreshUser();
+    return response;
   };
 
   const disable2FA = async (password: string) => {
-    try {
-      await authService.disable2FA(password);
-      await refreshUser();
-    } catch (error) {
-      console.error('Failed to disable 2FA:', error);
-      throw error;
-    }
+    await authService.disable2FA(password);
+    await refreshUser();
   };
 
   const value: AuthContextType = {
@@ -202,12 +166,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
+}
 
-export const useAuth = () => {
+function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
-};
+}
+
+export { AuthProvider, useAuth };
