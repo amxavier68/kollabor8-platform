@@ -58,27 +58,10 @@ export class AuthController {
         res.status(401).json({ message: 'Unauthorized' });
         return;
       }
-      const user = await authService.getUserById(userId);
-      res.json(user);
+      res.json((req as any).user);
     } catch (error: any) {
       res.status(400).json({ 
         message: error.message || 'Failed to get profile' 
-      });
-    }
-  }
-
-  async changePassword(req: Request, res: Response): Promise<void> {
-    try {
-      const userId = (req as any).user?.id;
-      if (!userId) {
-        res.status(401).json({ message: 'Unauthorized' });
-        return;
-      }
-      await authService.changePassword(userId, req.body);
-      res.json({ message: 'Password changed successfully' });
-    } catch (error: any) {
-      res.status(400).json({ 
-        message: error.message || 'Password change failed' 
       });
     }
   }

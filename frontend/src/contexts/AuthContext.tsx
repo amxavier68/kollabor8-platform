@@ -76,9 +76,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (data: LoginRequest) => {
     try {
+      console.log('AuthContext: Calling authService.login...');
       const response = await authService.login(data);
+      console.log('AuthContext: Login response:', response);
 
       if (response.requires2FA) {
+        console.log('AuthContext: 2FA required');
         setState(prev => ({
           ...prev,
           requires2FA: true,
@@ -87,7 +90,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      // Use the user from the login response directly
       if (response.user) {
+        console.log('AuthContext: Setting user from login response');
         setState(prev => ({
           ...prev,
           user: response.user!,
@@ -95,9 +100,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           requires2FA: false,
           tempToken: null,
         }));
+        console.log('AuthContext: State updated, isAuthenticated=true');
       }
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('AuthContext: Login failed:', error);
       throw error;
     }
   };

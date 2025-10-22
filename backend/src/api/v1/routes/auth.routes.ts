@@ -1,13 +1,13 @@
 import express, { Router } from 'express';
+import { authController } from '../controllers/auth.controller';
+import { authenticate } from '../middleware/auth.middleware';
 
 const router: Router = express.Router();
 
-router.post('/login', (_req, res) => {
-  res.json({ success: true, message: 'Login endpoint - coming soon' });
-});
-
-router.post('/register', (_req, res) => {
-  res.json({ success: true, message: 'Register endpoint - coming soon' });
-});
+router.post('/register', (req, res) => authController.register(req, res));
+router.post('/login', (req, res) => authController.login(req, res));
+router.post('/refresh', (req, res) => authController.refresh(req, res));
+router.post('/logout', (req, res) => authController.logout(req, res));
+router.get('/me', authenticate, (req, res) => authController.getProfile(req, res));
 
 export default router;

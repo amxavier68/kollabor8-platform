@@ -265,46 +265,6 @@ export class AuthService {
     await user.save();
   }
 
-
-  private async generateTokens(user: any): Promise<AuthTokens> {
-    const accessToken = JWTUtil.generateAccessToken({
-      userId: user._id.toString(),
-      email: user.email,
-      role: user.role,
-    });
-
-    const refreshToken = JWTUtil.generateRefreshToken({
-      userId: user._id.toString(),
-    });
-
-    await RefreshToken.create({
-      token: refreshToken,
-      userId: user._id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
-
-    return { accessToken, refreshToken };
-  }
-
-  private async generateTokens(user: any): Promise<AuthTokens> {
-    const accessToken = JWTUtil.generateAccessToken({
-      userId: user._id.toString(),
-      email: user.email,
-      role: user.role,
-    });
-
-    const refreshToken = JWTUtil.generateRefreshToken({
-      userId: user._id.toString(),
-    });
-
-    await RefreshToken.create({
-      token: refreshToken,
-      userId: user._id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
-
-    return { accessToken, refreshToken };
-  }
   async getUserById(userId: string): Promise<any> {
     const user = await User.findById(userId).select('-password');
     if (!user) {

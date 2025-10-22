@@ -38,14 +38,22 @@ class ApiService {
       (response: AxiosResponse) => response,
       async (error: AxiosError<ApiError>) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        
+        // Don't retry on auth endpoints
+        const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || 
+                               originalRequest.url?.includes('/auth/register') ||
+                               originalRequest.url?.includes('/auth/refresh');
+
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
           originalRequest._retry = true;
+
           try {
             if (!this.refreshPromise) {
               this.refreshPromise = this.refreshAccessToken();
             }
             const newToken = await this.refreshPromise;
             this.refreshPromise = null;
+
             if (originalRequest.headers) {
               originalRequest.headers.Authorization = `Bearer ${newToken}`;
             }
@@ -57,6 +65,7 @@ class ApiService {
             return Promise.reject(refreshError);
           }
         }
+
         return Promise.reject(this.normalizeError(error));
       }
     );
@@ -65,6 +74,7 @@ class ApiService {
   private async refreshAccessToken(): Promise<string> {
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) throw new Error('No refresh token available');
+    
     try {
       const response = await axios.post(`${API_URL}/api/${API_VERSION}/auth/refresh`, { refreshToken });
       const { accessToken, refreshToken: newRefreshToken } = response.data;

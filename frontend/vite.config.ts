@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite'
-import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import tailwindcss from '@tailwindcss/vite'
+import autoprefixer from 'autoprefixer'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react({
@@ -11,11 +11,15 @@ export default defineConfig({
         plugins: [
           ['@babel/plugin-proposal-decorators', { legacy: true }],
           ['@babel/plugin-proposal-class-properties', { loose: true }],
-          tailwindcss(),
-        ]
-      }
-    })
+        ],
+      },
+    }),
   ],
+  css: {
+    postcss: {
+      plugins: [tailwindcss(), autoprefixer()],
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -40,7 +44,6 @@ export default defineConfig({
     },
   },
   esbuild: {
-    // Enable decorator support in esbuild
     target: 'es2020',
   },
 })
