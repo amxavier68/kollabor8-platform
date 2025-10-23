@@ -54,6 +54,23 @@ jobs:
           echo "Checking frontend build..."
           test -d frontend/dist || (echo "Frontend build missing!" && exit 1)
 
+      # --- Sentry Upload ---
+      - name: ⚡ Upload Sentry Source Maps
+        uses: getsentry/sentry-cli-action@v2
+        with:
+          environment: production
+          authToken: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          org: ${{ secrets.SENTRY_ORG }}
+          project: ${{ secrets.SENTRY_PROJECT }}
+          release: ${{ github.sha }}
+        continue-on-error: true
+
+      # --- PostHog Environment Variables ---
+      - name: 📊 Set PostHog Environment
+        run: |
+          echo "POSTHOG_API_KEY=${{ secrets.POSTHOG_API_KEY }}" >> $GITHUB_ENV
+          echo "POSTHOG_API_HOST=https://app.posthog.com" >> $GITHUB_ENV
+
 
   preview-deploy:
     name: 🧭 Preview Deploy (PR)
@@ -70,7 +87,6 @@ jobs:
         with:
           node-version: 20
 
-      # --- Railway Preview Deployment ---
       - name: 🚆 Deploy Backend to Railway (Preview)
         uses: railwayapp/railway-action@v3
         with:
@@ -78,7 +94,6 @@ jobs:
           project: ${{ secrets.RAILWAY_PROJECT_ID }}
           token: ${{ secrets.RAILWAY_TOKEN }}
 
-      # --- Vercel Preview Deployment ---
       - name: ▲ Deploy Frontend to Vercel (Preview)
         uses: amondnet/vercel-action@v25
         with:
@@ -106,7 +121,6 @@ jobs:
           node-version: 20
           cache: "npm"
 
-      # --- Railway Backend Deployment ---
       - name: 🚆 Deploy Backend to Railway (Production)
         uses: railwayapp/railway-action@v3
         with:
@@ -114,7 +128,6 @@ jobs:
           project: ${{ secrets.RAILWAY_PROJECT_ID }}
           token: ${{ secrets.RAILWAY_TOKEN }}
 
-      # --- Vercel Frontend Deployment ---
       - name: ▲ Deploy Frontend to Vercel (Production)
         uses: amondnet/vercel-action@v25
         with:
@@ -123,3 +136,25 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           working-directory: ./frontend
           prod: true
+
+
+  notify-on-failure:
+    name: ⚠️ Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [build-and-test, preview-deploy, deploy]
+    if: ${{ failure() }}
+    steps:
+      - name: 🛎️ Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 💬 Send Teams Notification
+        uses: Ilshidur/action-slack@v3
+        with:
+          webhook_url: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          msg: |
+            ⚠️ CI/CD Pipeline Failed
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Run: ${{ github.run_id }}
+          username: GitHub Actions
