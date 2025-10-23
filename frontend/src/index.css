@@ -4,3 +4,27 @@
   --color-primary: #6366f1;
   --color-secondary: #8b5cf6;
 }
+
+/* Custom theme variables */
+:root {
+  --border: 220 14% 96%;
+  --input: 220 14% 96%;
+  --ring: 240 5% 84%;
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+
+  --primary: 239 84% 67%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 267 84% 81%;
+  --secondary-foreground: 0 0% 100%;
+
+  --accent: 267 100% 72%;
+  --accent-foreground: 0 0% 100%;
+}
+
+/* Optional: dark mode */
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 100%;
+}
