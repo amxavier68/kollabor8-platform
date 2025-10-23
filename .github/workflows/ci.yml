@@ -1,0 +1,125 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    name: 🧪 Build & Test
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:6
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongo --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: 🛎️ Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🧹 Run Linter
+        run: npm run lint
+
+      - name: 🧪 Run Tests
+        env:
+          MONGO_URI: mongodb://localhost:27017/testdb
+        run: npm run test
+
+      - name: 🏗️ Build Frontend (Vite)
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: ✅ Verify Build Artifacts
+        run: |
+          echo "Checking frontend build..."
+          test -d frontend/dist || (echo "Frontend build missing!" && exit 1)
+
+
+  preview-deploy:
+    name: 🧭 Preview Deploy (PR)
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: 🛎️ Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # --- Railway Preview Deployment ---
+      - name: 🚆 Deploy Backend to Railway (Preview)
+        uses: railwayapp/railway-action@v3
+        with:
+          service: backend
+          project: ${{ secrets.RAILWAY_PROJECT_ID }}
+          token: ${{ secrets.RAILWAY_TOKEN }}
+
+      # --- Vercel Preview Deployment ---
+      - name: ▲ Deploy Frontend to Vercel (Preview)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+          alias: preview-${{ github.head_ref }}
+          prod: false
+
+
+  deploy:
+    name: 🚀 Deploy to Railway & Vercel (Prod)
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 🛎️ Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      # --- Railway Backend Deployment ---
+      - name: 🚆 Deploy Backend to Railway (Production)
+        uses: railwayapp/railway-action@v3
+        with:
+          service: backend
+          project: ${{ secrets.RAILWAY_PROJECT_ID }}
+          token: ${{ secrets.RAILWAY_TOKEN }}
+
+      # --- Vercel Frontend Deployment ---
+      - name: ▲ Deploy Frontend to Vercel (Production)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+          prod: true
