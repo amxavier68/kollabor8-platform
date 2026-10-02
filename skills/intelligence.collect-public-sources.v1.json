@@ -1,0 +1,45 @@
+{
+  "skill_id":"intelligence.collect-public-sources",
+  "name":"Collect Public Intelligence Sources",
+  "version":"1.0.0",
+  "owner_seat":"search-intelligence",
+  "purpose":"Collect time-bounded public evidence for an approved intelligence brief without interpreting unsupported conclusions.",
+  "status":"draft",
+  "inputs":[
+    {"name":"organisation_id","required":true},
+    {"name":"topic_scope","required":true},
+    {"name":"time_window","required":true},
+    {"name":"source_policy","required":true}
+  ],
+  "preconditions":[
+    {"check":"scope is approved"},
+    {"check":"public-source tools are available"}
+  ],
+  "permitted_tools":["web.search","web.open","atlas.evidence.write"],
+  "policy_profile":"research.readonly.v1",
+  "steps":[
+    {"order":1,"action":"retrieve sources matching topic and time window"},
+    {"order":2,"action":"exclude sources outside source policy"},
+    {"order":3,"action":"capture publication date, event date and provenance"},
+    {"order":4,"action":"write source evidence references to Atlas"}
+  ],
+  "outputs":[{"name":"source_set","type":"evidence-reference-list"}],
+  "side_effects":["append evidence records"],
+  "evidence_required":[
+    {"type":"source_reference"},
+    {"type":"retrieval_timestamp"},
+    {"type":"publication_or_event_date"}
+  ],
+  "validation":[
+    {"rule":"every factual item has a source reference"},
+    {"rule":"current claims use current sources"}
+  ],
+  "stop_conditions":[
+    {"condition":"scope cannot be resolved"},
+    {"condition":"source access unavailable"},
+    {"condition":"policy forbids requested source"}
+  ],
+  "failure_handling":{"mode":"safe_stop","retry":"bounded-by-workflow"},
+  "last_tested_at":null,
+  "test_suite_ref":"test/skills/intelligence.collect-public-sources.test.json"
+}
