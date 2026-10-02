@@ -11,7 +11,8 @@
     "start": "node src/server.js",
     "test": "node --test",
     "check": "node --check src/server.js && npm run validate:contracts && node --test",
-    "validate:contracts": "node scripts/validate-contracts.js"
+    "validate:contracts": "node scripts/validate-contracts.js",
+    "prestart": "node --check src/server.js && npm run validate:contracts"
   },
   "dependencies": {
     "ajv": "^8.17.1",
