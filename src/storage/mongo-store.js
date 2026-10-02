@@ -73,6 +73,30 @@ export class MongoStore {
     return record;
   }
 
+  async findEventsByCorrelation(correlationId, limit = 100) {
+    return this.events
+      .find({ correlation_id: correlationId }, { projection: { _id: 0 } })
+      .sort({ received_at: 1 })
+      .limit(Math.min(Math.max(Number(limit) || 100, 1), 200))
+      .toArray();
+  }
+
+  async findWorkItemsByCorrelation(correlationId, limit = 100) {
+    return this.workItems
+      .find({ correlation_id: correlationId }, { projection: { _id: 0 } })
+      .sort({ created_at: 1 })
+      .limit(Math.min(Math.max(Number(limit) || 100, 1), 200))
+      .toArray();
+  }
+
+  async findApprovalsByCorrelation(correlationId, limit = 100) {
+    return this.approvals
+      .find({ correlation_id: correlationId }, { projection: { _id: 0 } })
+      .sort({ created_at: 1 })
+      .limit(Math.min(Math.max(Number(limit) || 100, 1), 200))
+      .toArray();
+  }
+
   async insertApproval(record) {
     await this.approvals.insertOne({ ...record });
     return record;
