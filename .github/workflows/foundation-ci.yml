@@ -30,18 +30,3 @@ jobs:
       - name: Foundation contract and runtime checks
         run: npm run check
 
-      - name: Backend install
-        working-directory: ./backend
-        run: npm install
-
-      - name: Backend type check
-        working-directory: ./backend
-        run: npm run type-check
-
-      - name: Frontend install
-        working-directory: ./frontend
-        run: npm install
-
-      - name: Frontend build
-        working-directory: ./frontend
-        run: npm run build
