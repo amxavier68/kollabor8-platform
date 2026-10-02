@@ -25,7 +25,11 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Left side — Brand */}
-            <div className="flex items-center space-x-2">\n              <h1 className="text-xl font-bold text-primary">Kollabor8 Platform</h1>\n            </div>\n\n            {/* Right side — User + Controls */}
+            <div className="flex items-center space-x-2">
+              <h1 className="text-xl font-bold text-primary">Kollabor8 Platform</h1>
+            </div>
+
+            {/* Right side — User + Controls */}
             <div className="flex items-center space-x-3">
               {user && (
                 <span className="text-sm text-muted-foreground">
