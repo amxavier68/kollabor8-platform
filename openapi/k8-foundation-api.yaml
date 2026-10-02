@@ -91,6 +91,33 @@ paths:
         "200": { description: Evidence record }
         "401": { description: API key missing or invalid }
         "404": { description: Evidence record not found }
+  /api/v1/operations/transactions/{correlationId}:
+    get:
+      summary: Read a correlated Operations Control transaction view
+      operationId: getOperationsTransaction
+      parameters:
+        - in: path
+          name: correlationId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Correlated transaction timeline }
+        "401": { description: API key missing or invalid }
+        "404": { description: Transaction not found }
+  /api/v1/operations/transactions/{correlationId}/interventions:
+    post:
+      summary: Create a governed support mediation work item
+      operationId: createOperationsIntervention
+      parameters:
+        - in: path
+          name: correlationId
+          required: true
+          schema: { type: string }
+      responses:
+        "201": { description: Intervention work item created }
+        "400": { description: Invalid intervention request }
+        "401": { description: API key missing or invalid }
+        "404": { description: Transaction not found }
 components:
   schemas:
     ApprovalLevel:
