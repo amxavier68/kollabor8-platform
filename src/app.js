@@ -6,19 +6,24 @@ import { EventService } from "./services/event-service.js";
 import { RoutingService } from "./services/routing-service.js";
 import { OperationsControlService } from "./services/operations-control-service.js";
 import { WooCommerceSandboxService } from "./services/woocommerce-sandbox-service.js";
+import { WooCommerceIngressService } from "./services/woocommerce-ingress-service.js";
 import { apiKeyGuard, mutationGuard } from "./security/mutation-guard.js";
 
 export function createApp(store, env = process.env) {
   const app = express();
   app.disable("x-powered-by");
   app.use(helmet());
-  app.use(express.json({ limit: "256kb" }));
+  app.use(express.json({
+    limit: "256kb",
+    verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); }
+  }));
 
   const evidence = new EvidenceService(store, env);
   const router = new RoutingService(store, evidence);
   const events = new EventService(store, evidence, router);
   const operations = new OperationsControlService(store, evidence);
   const wooSandbox = new WooCommerceSandboxService(events, env);
+  const wooIngress = new WooCommerceIngressService(events, env);
   const guard = mutationGuard(store, env);
   const readGuard = apiKeyGuard(env);
 
@@ -48,6 +53,24 @@ export function createApp(store, env = process.env) {
       const event = await events.get(req.params.eventId);
       if (!event) return res.status(404).json({ error: "event_not_found" });
       return res.json({ event });
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/v1/ingress/woocommerce/orders", async (req, res, next) => {
+    try {
+      const result = await wooIngress.ingestWebhook({
+        rawBody: req.rawBody,
+        signature: req.get("x-wc-webhook-signature"),
+        topic: req.get("x-wc-webhook-topic"),
+        resourceId: req.get("x-wc-webhook-resource"),
+        order: req.body
+      });
+      if (result.type === "disabled") return res.status(503).json({ error: "woocommerce_ingress_not_configured" });
+      if (result.type === "unauthorised") return res.status(401).json({ error: "invalid_woocommerce_signature" });
+      if (result.type === "invalid") return res.status(400).json({ error: result.error ?? "invalid_woocommerce_order" });
+      if (result.type === "conflict") return res.status(409).json({ error: "idempotency_conflict", event_id: result.event.event_id });
+      if (result.type === "deduplicated") return res.status(202).json({ deduplicated: true, event: result.event });
+      return res.status(202).json({ deduplicated: false, event: result.event, work_item: result.work_item ?? null });
     } catch (error) { next(error); }
   });
 
