@@ -4,6 +4,7 @@ import { id } from "./lib/ids.js";
 import { EvidenceService } from "./services/evidence-service.js";
 import { EventService } from "./services/event-service.js";
 import { RoutingService } from "./services/routing-service.js";
+import { OperationsControlService } from "./services/operations-control-service.js";
 import { apiKeyGuard, mutationGuard } from "./security/mutation-guard.js";
 
 export function createApp(store, env = process.env) {
@@ -15,6 +16,7 @@ export function createApp(store, env = process.env) {
   const evidence = new EvidenceService(store, env);
   const router = new RoutingService(store, evidence);
   const events = new EventService(store, evidence, router);
+  const operations = new OperationsControlService(store, evidence);
   const guard = mutationGuard(store, env);
   const readGuard = apiKeyGuard(env);
 
@@ -116,6 +118,25 @@ export function createApp(store, env = process.env) {
         result: "observed"
       });
       return res.status(201).json({ work_item: record });
+    } catch (error) { next(error); }
+  });
+
+  app.get("/api/v1/operations/transactions/:correlationId", readGuard, async (req, res, next) => {
+    try {
+      const transaction = await operations.transaction(req.params.correlationId);
+      if (transaction.counts.events === 0 && transaction.counts.work_items === 0) {
+        return res.status(404).json({ error: "transaction_not_found" });
+      }
+      return res.json({ transaction });
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/v1/operations/transactions/:correlationId/interventions", guard, async (req, res, next) => {
+    try {
+      const result = await operations.intervene(req.params.correlationId, req.body);
+      if (result.type === "not_found") return res.status(404).json({ error: "transaction_not_found" });
+      if (result.type === "invalid") return res.status(400).json({ error: "invalid_intervention" });
+      return res.status(201).json({ work_item: result.workItem });
     } catch (error) { next(error); }
   });
 
