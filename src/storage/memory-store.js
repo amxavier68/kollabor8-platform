@@ -45,6 +45,20 @@ export class MemoryStore {
     return structuredClone(record);
   }
 
+  async getEvidence(evidenceId) {
+    const record = this.evidence.get(evidenceId);
+    return record ? structuredClone(record) : null;
+  }
+
+  async findEvidence({ eventId, correlationId, limit = 50 } = {}) {
+    const records = [...this.evidence.values()]
+      .filter((record) => !eventId || record.event_id === eventId)
+      .filter((record) => !correlationId || record.correlation_id === correlationId)
+      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+      .slice(0, Math.min(Math.max(Number(limit) || 50, 1), 100));
+    return structuredClone(records);
+  }
+
   async insertWorkItem(record) {
     if (this.workItems.has(record.work_item_id)) throw new Error("WORK_ITEM_CONFLICT");
     this.workItems.set(record.work_item_id, structuredClone(record));
