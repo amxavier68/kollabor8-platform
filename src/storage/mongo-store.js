@@ -73,6 +73,14 @@ export class MongoStore {
     return record;
   }
 
+  async findRecentEvents(limit = 500) {
+    return this.events
+      .find({}, { projection: { _id: 0 } })
+      .sort({ received_at: -1 })
+      .limit(Math.min(Math.max(Number(limit) || 500, 1), 1000))
+      .toArray();
+  }
+
   async findEventsByCorrelation(correlationId, limit = 100) {
     return this.events
       .find({ correlation_id: correlationId }, { projection: { _id: 0 } })
