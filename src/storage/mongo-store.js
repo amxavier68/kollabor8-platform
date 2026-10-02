@@ -34,7 +34,7 @@ export class MongoStore {
   }
 
   async insertEvent(event) {
-    await this.events.insertOne(event);
+    await this.events.insertOne({ ...event });
     return event;
   }
 
@@ -49,7 +49,7 @@ export class MongoStore {
   }
 
   async appendEvidence(record) {
-    await this.evidence.insertOne(record);
+    await this.evidence.insertOne({ ...record });
     return record;
   }
 
@@ -69,12 +69,12 @@ export class MongoStore {
   }
 
   async insertWorkItem(record) {
-    await this.workItems.insertOne(record);
+    await this.workItems.insertOne({ ...record });
     return record;
   }
 
   async insertApproval(record) {
-    await this.approvals.insertOne(record);
+    await this.approvals.insertOne({ ...record });
     return record;
   }
 }
