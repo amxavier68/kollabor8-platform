@@ -7,14 +7,29 @@ function equalSecrets(a, b) {
   return timingSafeEqual(left, right);
 }
 
-export function mutationGuard(store, env = process.env) {
+export function apiKeyGuard(env = process.env) {
   const authDisabled = env.AUTH_DISABLED === "true";
-  const allowEphemeralMutations = env.ALLOW_EPHEMERAL_MUTATIONS === "true";
   const configuredKey = env.K8_API_KEY;
 
   if (env.NODE_ENV === "production" && !configuredKey) {
-    throw new Error("K8_API_KEY_REQUIRED: production mutation endpoints require an API key");
+    throw new Error("K8_API_KEY_REQUIRED: protected endpoints require an API key");
   }
+
+  return function guard(req, res, next) {
+    if (authDisabled) return next();
+
+    const supplied = req.get("x-k8-api-key");
+    if (!configuredKey || !equalSecrets(supplied, configuredKey)) {
+      return res.status(401).json({ error: "unauthorised" });
+    }
+
+    return next();
+  };
+}
+
+export function mutationGuard(store, env = process.env) {
+  const allowEphemeralMutations = env.ALLOW_EPHEMERAL_MUTATIONS === "true";
+  const auth = apiKeyGuard(env);
 
   return function guard(req, res, next) {
     if (store.kind === "memory" && !allowEphemeralMutations) {
@@ -24,13 +39,6 @@ export function mutationGuard(store, env = process.env) {
       });
     }
 
-    if (authDisabled) return next();
-
-    const supplied = req.get("x-k8-api-key");
-    if (!configuredKey || !equalSecrets(supplied, configuredKey)) {
-      return res.status(401).json({ error: "unauthorised" });
-    }
-
-    return next();
+    return auth(req, res, next);
   };
 }
