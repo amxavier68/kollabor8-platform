@@ -1,0 +1,19 @@
+{
+  "name": "kollabor8-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "K8 Business OS runtime foundation",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "check": "node --check src/server.js && node --test"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "express": "^5.1.0",
+    "mongodb": "^6.20.0"
+  }
+}
