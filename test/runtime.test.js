@@ -294,3 +294,58 @@ test("Operations Control mediation creates governed support work without mutatin
     );
   });
 });
+
+
+test("Operations Control queue identifies who is being served and what they requested", async () => {
+  await withServer(async ({ base }) => {
+    const customerEvent = sampleEvent({
+      event_id: "evt_customer_1",
+      event_name: "order.created",
+      correlation_id: "order:10428",
+      idempotency_key: "order:10428:created",
+      client_id: "client_pttm",
+      subject: { type: "order", id: "floral-delivery" },
+      service_context: {
+        party_type: "customer",
+        party_id: "cust_10428",
+        display_name: "Customer 10428",
+        request_type: "Floral delivery",
+        request_reference: "Order #10428",
+        summary: "Delivery order awaiting fulfilment",
+        channel: "web",
+        priority: "normal",
+        sla_due_at: null
+      }
+    });
+
+    const internalEvent = sampleEvent({
+      event_id: "evt_internal_1",
+      correlation_id: "briefing:2026-10-03",
+      idempotency_key: "briefing:2026-10-03"
+    });
+
+    for (const event of [customerEvent, internalEvent]) {
+      const response = await fetch(`${base}/api/v1/events`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(event)
+      });
+      assert.equal(response.status, 202);
+    }
+
+    const response = await fetch(`${base}/api/v1/operations/transactions`);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+
+    const customer = body.queue.items.find((item) => item.correlation_id === "order:10428");
+    assert.ok(customer);
+    assert.equal(customer.display_name, "Customer 10428");
+    assert.equal(customer.request_type, "Floral delivery");
+    assert.equal(customer.request_reference, "Order #10428");
+
+    const internal = body.queue.items.find((item) => item.correlation_id === "briefing:2026-10-03");
+    assert.ok(internal);
+    assert.equal(internal.display_name, "Kollabor8 (internal)");
+    assert.equal(internal.party_type, "internal");
+  });
+});
