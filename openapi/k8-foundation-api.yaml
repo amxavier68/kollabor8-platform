@@ -55,12 +55,42 @@ paths:
       responses:
         "201": { description: Approval recorded }
   /api/v1/evidence:
+    get:
+      summary: Read Atlas evidence by event or correlation
+      operationId: findEvidence
+      parameters:
+        - in: query
+          name: event_id
+          schema: { type: string }
+        - in: query
+          name: correlation_id
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200": { description: Matching evidence records }
+        "400": { description: event_id or correlation_id is required }
+        "401": { description: API key missing or invalid }
     post:
       summary: Append an Atlas evidence record
       operationId: appendEvidence
       responses:
         "201": { description: Evidence appended }
         "409": { description: Immutable record conflict }
+  /api/v1/evidence/{evidenceId}:
+    get:
+      summary: Read one Atlas evidence record
+      operationId: getEvidence
+      parameters:
+        - in: path
+          name: evidenceId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Evidence record }
+        "401": { description: API key missing or invalid }
+        "404": { description: Evidence record not found }
 components:
   schemas:
     ApprovalLevel:
