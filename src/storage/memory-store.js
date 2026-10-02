@@ -65,6 +65,13 @@ export class MemoryStore {
     return structuredClone(record);
   }
 
+  async findRecentEvents(limit = 500) {
+    const records = [...this.events.values()]
+      .sort((a, b) => String(b.received_at).localeCompare(String(a.received_at)))
+      .slice(0, Math.min(Math.max(Number(limit) || 500, 1), 1000));
+    return structuredClone(records);
+  }
+
   async findEventsByCorrelation(correlationId, limit = 100) {
     const records = [...this.events.values()]
       .filter((record) => record.correlation_id === correlationId)
