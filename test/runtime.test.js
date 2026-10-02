@@ -4,10 +4,16 @@ import { once } from "node:events";
 import { createApp } from "../src/app.js";
 import { MemoryStore } from "../src/storage/memory-store.js";
 
-async function withServer(fn) {
+async function withServer(fn, envOverrides = {}) {
   const store = new MemoryStore();
   await store.init();
-  const app = createApp(store, { NODE_ENV: "test", K8_ENVIRONMENT: "test", AUTH_DISABLED: "true", ALLOW_EPHEMERAL_MUTATIONS: "true" });
+  const app = createApp(store, {
+    NODE_ENV: "test",
+    K8_ENVIRONMENT: "test",
+    AUTH_DISABLED: "true",
+    ALLOW_EPHEMERAL_MUTATIONS: "true",
+    ...envOverrides
+  });
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
@@ -347,5 +353,62 @@ test("Operations Control queue identifies who is being served and what they requ
     assert.ok(internal);
     assert.equal(internal.display_name, "Kollabor8 (internal)");
     assert.equal(internal.party_type, "internal");
+  });
+});
+
+
+test("WooCommerce sandbox ingress maps an order into a customer service transaction", async () => {
+  await withServer(async ({ base }) => {
+    const response = await fetch(`${base}/api/v1/ingress/woocommerce/sandbox/orders`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: 9001,
+        number: "9001",
+        status: "processing",
+        currency: "AUD",
+        total: "129.00",
+        customer_id: 501,
+        date_created_gmt: "2026-10-03T00:00:00Z",
+        date_modified_gmt: "2026-10-03T00:01:00Z",
+        billing: {
+          first_name: "Sophie",
+          last_name: "Hart",
+          email: "sophie.sandbox@example.invalid"
+        },
+        line_items: [
+          { product_id: 101, name: "Seasonal Floral Arrangement", quantity: 1, total: "99.00" },
+          { product_id: 202, name: "Gift Add-on", quantity: 1, total: "30.00" }
+        ],
+        shipping_lines: [{ method_title: "Local delivery" }]
+      })
+    });
+
+    assert.equal(response.status, 202);
+    const ingested = await response.json();
+    assert.equal(ingested.event.correlation_id, "woocommerce:order:9001");
+    assert.equal(ingested.event.service_context.display_name, "Sophie Hart");
+    assert.equal(ingested.event.service_context.request_reference, "Order #9001");
+    assert.equal(ingested.event.service_context.channel, "woocommerce");
+
+    const queueResponse = await fetch(`${base}/api/v1/operations/transactions?search=Sophie`);
+    assert.equal(queueResponse.status, 200);
+    const queue = await queueResponse.json();
+    assert.equal(queue.queue.count, 1);
+    assert.equal(queue.queue.items[0].display_name, "Sophie Hart");
+    assert.equal(queue.queue.items[0].request_type, "WooCommerce order");
+    assert.equal(queue.queue.items[0].request_reference, "Order #9001");
+  }, { K8_WOOCOMMERCE_SANDBOX: "true" });
+});
+
+test("WooCommerce sandbox ingress is unavailable unless explicitly enabled", async () => {
+  await withServer(async ({ base }) => {
+    const response = await fetch(`${base}/api/v1/ingress/woocommerce/sandbox/orders`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: 9002 })
+    });
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error, "sandbox_not_enabled");
   });
 });
