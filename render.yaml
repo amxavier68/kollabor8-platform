@@ -26,3 +26,23 @@ services:
         value: "false"
       - key: ALLOW_EPHEMERAL_MUTATIONS
         value: "false"
+
+  - type: cron
+    name: k8-daily-intelligence-scheduler
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    schedule: "0 20 * * 0-4"
+    buildCommand: npm install
+    startCommand: node scripts/enqueue-daily-briefing.js
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: K8_PLATFORM_URL
+        sync: false
+      - key: K8_API_KEY
+        sync: false
+      - key: K8_ORGANISATION_ID
+        value: org_kollabor8
+      - key: K8_ENVIRONMENT
+        value: staging
