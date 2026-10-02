@@ -65,6 +65,30 @@ export class MemoryStore {
     return structuredClone(record);
   }
 
+  async findEventsByCorrelation(correlationId, limit = 100) {
+    const records = [...this.events.values()]
+      .filter((record) => record.correlation_id === correlationId)
+      .sort((a, b) => String(a.received_at).localeCompare(String(b.received_at)))
+      .slice(0, Math.min(Math.max(Number(limit) || 100, 1), 200));
+    return structuredClone(records);
+  }
+
+  async findWorkItemsByCorrelation(correlationId, limit = 100) {
+    const records = [...this.workItems.values()]
+      .filter((record) => record.correlation_id === correlationId)
+      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+      .slice(0, Math.min(Math.max(Number(limit) || 100, 1), 200));
+    return structuredClone(records);
+  }
+
+  async findApprovalsByCorrelation(correlationId, limit = 100) {
+    const records = [...this.approvals.values()]
+      .filter((record) => record.correlation_id === correlationId)
+      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+      .slice(0, Math.min(Math.max(Number(limit) || 100, 1), 200));
+    return structuredClone(records);
+  }
+
   async insertApproval(record) {
     if (this.approvals.has(record.approval_id)) throw new Error("APPROVAL_CONFLICT");
     this.approvals.set(record.approval_id, structuredClone(record));
