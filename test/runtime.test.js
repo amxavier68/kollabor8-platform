@@ -143,10 +143,11 @@ test("evidence lookup finds ingest evidence by event id", async () => {
     const response = await fetch(`${base}/api/v1/evidence?event_id=${encodeURIComponent(event.event_id)}`);
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.equal(body.evidence.length, 1);
-    assert.equal(body.evidence[0].event_id, event.event_id);
-    assert.equal(body.evidence[0].action, "pulse.event.ingested");
-    assert.equal(body.evidence[0].result, "observed");
+    assert.ok(body.evidence.length >= 1);
+    const ingestEvidence = body.evidence.find((record) => record.action === "pulse.event.ingested");
+    assert.ok(ingestEvidence);
+    assert.equal(ingestEvidence.event_id, event.event_id);
+    assert.equal(ingestEvidence.result, "observed");
   });
 });
 
@@ -172,5 +173,48 @@ test("evidence can be read by evidence id", async () => {
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(body.evidence.evidence_id, evidenceId);
+  });
+});
+
+
+test("Daily Intelligence schedule event is routed into a governed work item", async () => {
+  await withServer(async ({ base, store }) => {
+    const event = sampleEvent({
+      event_id: "evt_briefing_2026-10-03",
+      correlation_id: "briefing:2026-10-03",
+      idempotency_key: "daily-intelligence:2026-10-03",
+      payload: {
+        local_date: "2026-10-03",
+        timezone: "Australia/Brisbane",
+        monday_weekend_catchup: false,
+        part_1_item_count: 5
+      }
+    });
+
+    const response = await fetch(`${base}/api/v1/events`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(event)
+    });
+    assert.equal(response.status, 202);
+
+    const body = await response.json();
+    assert.equal(body.event.state, "ROUTED");
+    assert.equal(body.work_item.work_item_id, "work_briefing_2026-10-03");
+    assert.equal(body.work_item.approval_level, "A0");
+
+    const storedWorkItem = store.workItems.get("work_briefing_2026-10-03");
+    assert.ok(storedWorkItem);
+    assert.equal(storedWorkItem.correlation_id, "briefing:2026-10-03");
+
+    const evidenceResponse = await fetch(
+      `${base}/api/v1/evidence?correlation_id=${encodeURIComponent(event.correlation_id)}`
+    );
+    assert.equal(evidenceResponse.status, 200);
+    const evidenceBody = await evidenceResponse.json();
+    const actions = evidenceBody.evidence.map((record) => record.action);
+    assert.ok(actions.includes("pulse.event.ingested"));
+    assert.ok(actions.includes("delivery.work_item.created"));
+    assert.ok(actions.includes("pulse.event.routed"));
   });
 });
