@@ -3,7 +3,7 @@ import { MongoStore } from "./mongo-store.js";
 
 export async function createStore(env = process.env) {
   const nodeEnv = env.NODE_ENV ?? "development";
-  const uri = env.MONGODB_URI;
+  const uri = env.MONGODB_URI ?? env.MONGO_URI;
 
   let store;
   if (uri) {
@@ -11,7 +11,7 @@ export async function createStore(env = process.env) {
   } else {
     const allowMemory = env.ALLOW_IN_MEMORY_STORE === "true" || nodeEnv === "test" || nodeEnv === "development";
     if (!allowMemory) {
-      throw new Error("MONGODB_URI_REQUIRED: durable storage is mandatory outside development/test unless ALLOW_IN_MEMORY_STORE=true is explicitly set");
+      throw new Error("MONGO_URI_REQUIRED: durable storage is mandatory outside development/test unless ALLOW_IN_MEMORY_STORE=true is explicitly set");
     }
     store = new MemoryStore();
   }
