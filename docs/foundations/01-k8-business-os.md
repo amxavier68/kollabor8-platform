@@ -27,6 +27,8 @@ Delivery OS
 K8 Pulse
       ↓
 Atlas Evidence
+
+K8 Operations Control spans Pulse, Delivery OS and Atlas as the human support/mediation layer.
 ```
 
 Governance applies across every layer:
@@ -54,6 +56,9 @@ Communications and event plane. Handles event ingestion, correlation, routing, a
 
 ### 7. Atlas Evidence
 Append-first evidence and provenance ledger recording what was requested, decided, approved, executed, validated, failed, recovered and completed.
+
+### 8. K8 Operations Control
+Human support and mediation layer. Provides a correlated transaction timeline across Pulse events, Delivery OS work items, approvals and Atlas evidence. Operators request governed interventions; they do not bypass workflow policy or directly rewrite transaction state.
 
 ## Human authority
 
