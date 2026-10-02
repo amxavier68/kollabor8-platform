@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
+import OperationsControlPage from './pages/operations/OperationsControlPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -25,6 +26,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/operations"
+        element={
+          <ProtectedRoute>
+            <OperationsControlPage />
           </ProtectedRoute>
         }
       />
