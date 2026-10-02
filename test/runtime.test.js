@@ -130,3 +130,47 @@ test("ephemeral staging mutations safe-stop by default", async () => {
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+
+test("evidence lookup finds ingest evidence by event id", async () => {
+  await withServer(async ({ base }) => {
+    const event = sampleEvent();
+    const ingest = await fetch(`${base}/api/v1/events`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(event)
+    });
+    assert.equal(ingest.status, 202);
+
+    const response = await fetch(`${base}/api/v1/evidence?event_id=${encodeURIComponent(event.event_id)}`);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.evidence.length, 1);
+    assert.equal(body.evidence[0].event_id, event.event_id);
+    assert.equal(body.evidence[0].action, "pulse.event.ingested");
+    assert.equal(body.evidence[0].result, "observed");
+  });
+});
+
+test("evidence collection lookup requires a narrow filter", async () => {
+  await withServer(async ({ base }) => {
+    const response = await fetch(`${base}/api/v1/evidence`);
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error, "evidence_filter_required");
+  });
+});
+
+test("evidence can be read by evidence id", async () => {
+  await withServer(async ({ base }) => {
+    const event = sampleEvent();
+    await fetch(`${base}/api/v1/events`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(event)
+    });
+    const list = await fetch(`${base}/api/v1/evidence?correlation_id=${encodeURIComponent(event.correlation_id)}`);
+    const listed = await list.json();
+    const evidenceId = listed.evidence[0].evidence_id;
+
+    const response = await fetch(`${base}/api/v1/evidence/${encodeURIComponent(evidenceId)}`);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.evidence.evidence_id, evidenceId);
+  });
+});
