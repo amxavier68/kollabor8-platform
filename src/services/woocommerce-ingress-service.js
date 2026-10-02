@@ -114,6 +114,7 @@ export class WooCommerceIngressService {
       },
       service_context: {
         party_type: "customer",
+        client_name: this.env.K8_WOOCOMMERCE_CLIENT_NAME ?? "Petals to the Metal",
         party_id: order.customer_id ? `woo_customer_${order.customer_id}` : `woo_guest_order_${orderId}`,
         display_name: customerName(order),
         request_type: "Floral order",
