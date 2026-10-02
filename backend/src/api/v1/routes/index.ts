@@ -1,7 +1,6 @@
 import express, { Router } from 'express';
 import authRoutes from './auth.routes';
 import licenseRoutes from './license.routes';
-import operationsRoutes from './operations.routes';
 
 const router: Router = express.Router();
 
@@ -12,7 +11,6 @@ router.get('/', (_req, res) => {
     endpoints: {
       auth: '/api/v1/auth',
       licenses: '/api/v1/licenses',
-      operations: '/api/v1/operations',
     },
     documentation: 'https://docs.kollabor8.com/api/v1'
   });
@@ -20,6 +18,5 @@ router.get('/', (_req, res) => {
 
 router.use('/auth', authRoutes);
 router.use('/licenses', licenseRoutes);
-router.use('/operations', operationsRoutes);
 
 export default router;
