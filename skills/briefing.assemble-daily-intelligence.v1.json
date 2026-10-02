@@ -1,0 +1,44 @@
+{
+  "skill_id":"briefing.assemble-daily-intelligence",
+  "name":"Assemble Daily Intelligence Briefing",
+  "version":"1.0.0",
+  "owner_seat":"orchestration",
+  "purpose":"Convert deduplicated evidence into the owner-facing Kollabor8 Daily Intelligence Briefing using the commissioned briefing contract.",
+  "status":"draft",
+  "inputs":[
+    {"name":"business_context","required":true},
+    {"name":"deduplicated_source_set","required":true},
+    {"name":"operational_state","required":true}
+  ],
+  "preconditions":[
+    {"check":"business context version is active"},
+    {"check":"required evidence set is available"}
+  ],
+  "permitted_tools":["atlas.evidence.read","atlas.evidence.write"],
+  "policy_profile":"briefing.internal.v1",
+  "steps":[
+    {"order":1,"action":"rank developments by Kollabor8 business relevance"},
+    {"order":2,"action":"apply briefing count and section rules"},
+    {"order":3,"action":"separate fact, implication and recommended owner action"},
+    {"order":4,"action":"include Pulse blockers, dependencies and next gate"},
+    {"order":5,"action":"write assembled briefing evidence record"}
+  ],
+  "outputs":[{"name":"daily_intelligence_brief","type":"owner-brief"}],
+  "side_effects":["append evidence records"],
+  "evidence_required":[
+    {"type":"briefing-source-map"},
+    {"type":"business-relevance-rationale"}
+  ],
+  "validation":[
+    {"rule":"Part 1 contains exactly the commissioned number of items"},
+    {"rule":"no unsupported claims"},
+    {"rule":"Monday catch-up uses deduplicated weekend evidence"}
+  ],
+  "stop_conditions":[
+    {"condition":"active business context unavailable"},
+    {"condition":"evidence below minimum briefing threshold"}
+  ],
+  "failure_handling":{"mode":"degraded","action":"produce an explicitly incomplete brief only when policy permits"},
+  "last_tested_at":null,
+  "test_suite_ref":"test/skills/briefing.assemble-daily-intelligence.test.json"
+}
