@@ -218,3 +218,79 @@ test("Daily Intelligence schedule event is routed into a governed work item", as
     assert.ok(actions.includes("pulse.event.routed"));
   });
 });
+
+
+test("Operations Control returns a correlated transaction timeline", async () => {
+  await withServer(async ({ base }) => {
+    const event = sampleEvent({
+      event_id: "evt_ops_1",
+      correlation_id: "order:10428",
+      idempotency_key: "order:10428:created",
+      event_name: "order.created"
+    });
+
+    const ingest = await fetch(`${base}/api/v1/events`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(event)
+    });
+    assert.equal(ingest.status, 202);
+
+    const response = await fetch(
+      `${base}/api/v1/operations/transactions/${encodeURIComponent(event.correlation_id)}`
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.transaction.correlation_id, "order:10428");
+    assert.equal(body.transaction.counts.events, 1);
+    assert.ok(body.transaction.counts.evidence >= 1);
+    assert.ok(body.transaction.timeline.some((item) => item.type === "event"));
+    assert.ok(body.transaction.timeline.some((item) => item.type === "evidence"));
+  });
+});
+
+test("Operations Control mediation creates governed support work without mutating transaction state", async () => {
+  await withServer(async ({ base }) => {
+    const event = sampleEvent({
+      event_id: "evt_ops_2",
+      correlation_id: "order:10429",
+      idempotency_key: "order:10429:created",
+      event_name: "order.created"
+    });
+
+    await fetch(`${base}/api/v1/events`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(event)
+    });
+
+    const intervention = await fetch(
+      `${base}/api/v1/operations/transactions/${encodeURIComponent(event.correlation_id)}/interventions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          reason: "Courier has not acknowledged pickup",
+          requested_action: "review-courier-assignment",
+          actor: { type: "human", id: "support-operator" }
+        })
+      }
+    );
+    assert.equal(intervention.status, 201);
+    const interventionBody = await intervention.json();
+    assert.equal(interventionBody.work_item.approval_level, "A1");
+    assert.equal(interventionBody.work_item.state, "OPEN");
+
+    const transaction = await fetch(
+      `${base}/api/v1/operations/transactions/${encodeURIComponent(event.correlation_id)}`
+    );
+    const transactionBody = await transaction.json();
+    assert.equal(transactionBody.transaction.current_state, "VALIDATED");
+    assert.equal(transactionBody.transaction.open_work_items, 1);
+    assert.ok(
+      transactionBody.transaction.evidence.some(
+        (record) => record.action === "operations.intervention.requested"
+      )
+    );
+  });
+});
