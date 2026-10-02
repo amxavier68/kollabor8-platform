@@ -5,6 +5,7 @@ import { EvidenceService } from "./services/evidence-service.js";
 import { EventService } from "./services/event-service.js";
 import { RoutingService } from "./services/routing-service.js";
 import { OperationsControlService } from "./services/operations-control-service.js";
+import { WooCommerceSandboxService } from "./services/woocommerce-sandbox-service.js";
 import { apiKeyGuard, mutationGuard } from "./security/mutation-guard.js";
 
 export function createApp(store, env = process.env) {
@@ -17,6 +18,7 @@ export function createApp(store, env = process.env) {
   const router = new RoutingService(store, evidence);
   const events = new EventService(store, evidence, router);
   const operations = new OperationsControlService(store, evidence);
+  const wooSandbox = new WooCommerceSandboxService(events, env);
   const guard = mutationGuard(store, env);
   const readGuard = apiKeyGuard(env);
 
@@ -46,6 +48,27 @@ export function createApp(store, env = process.env) {
       const event = await events.get(req.params.eventId);
       if (!event) return res.status(404).json({ error: "event_not_found" });
       return res.json({ event });
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/v1/ingress/woocommerce/sandbox/orders", guard, async (req, res, next) => {
+    try {
+      const result = await wooSandbox.ingestOrder(req.body);
+      if (result.type === "disabled") return res.status(404).json({ error: "sandbox_not_enabled" });
+      if (result.type === "invalid") return res.status(400).json({ error: result.error });
+      if (result.type === "conflict") return res.status(409).json({ error: "idempotency_conflict", event_id: result.event.event_id });
+      if (result.type === "deduplicated") return res.status(202).json({ deduplicated: true, event: result.event });
+      if (result.type === "invalid") return res.status(400).json({ error: "invalid_event", details: result.errors });
+      return res.status(202).json({ deduplicated: false, event: result.event, work_item: result.work_item ?? null });
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/v1/ingress/woocommerce/sandbox/demo-order", guard, async (_req, res, next) => {
+    try {
+      const result = await wooSandbox.createDemoOrder();
+      if (result.type === "disabled") return res.status(404).json({ error: "sandbox_not_enabled" });
+      if (result.type === "invalid") return res.status(400).json({ error: "invalid_event", details: result.errors });
+      return res.status(202).json({ deduplicated: result.type === "deduplicated", event: result.event, work_item: result.work_item ?? null });
     } catch (error) { next(error); }
   });
 
