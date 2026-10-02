@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import crypto from "node:crypto";
 import { createApp } from "../src/app.js";
 import { MemoryStore } from "../src/storage/memory-store.js";
 
@@ -411,4 +412,74 @@ test("WooCommerce sandbox ingress is unavailable unless explicitly enabled", asy
     assert.equal(response.status, 404);
     assert.equal((await response.json()).error, "sandbox_not_enabled");
   });
+});
+
+
+test("signed WooCommerce webhook maps live order into PTTM service queue", async () => {
+  await withServer(async ({ base }) => {
+    const order = {
+      id: 9101,
+      number: "9101",
+      status: "processing",
+      currency: "AUD",
+      total: "149.00",
+      customer_id: 601,
+      date_created_gmt: "2026-10-03T00:10:00Z",
+      date_modified_gmt: "2026-10-03T00:11:00Z",
+      billing: {
+        first_name: "Mia",
+        last_name: "Cole"
+      },
+      line_items: [
+        { product_id: 301, name: "King Protea Arrangement", quantity: 1, total: "149.00" }
+      ],
+      shipping_lines: [{ method_title: "Scenic Rim delivery" }]
+    };
+    const raw = JSON.stringify(order);
+    const signature = crypto.createHmac("sha256", "woo-test-secret").update(raw).digest("base64");
+
+    const response = await fetch(`${base}/api/v1/ingress/woocommerce/orders`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-wc-webhook-signature": signature,
+        "x-wc-webhook-topic": "order.updated",
+        "x-wc-webhook-resource": "order"
+      },
+      body: raw
+    });
+
+    assert.equal(response.status, 202);
+    const ingested = await response.json();
+    assert.equal(ingested.event.service_context.client_name, "Petals to the Metal");
+    assert.equal(ingested.event.service_context.display_name, "Mia Cole");
+    assert.equal(ingested.event.service_context.workflow_status, "processing");
+
+    const queueResponse = await fetch(`${base}/api/v1/operations/transactions?search=Mia`);
+    const queue = await queueResponse.json();
+    assert.equal(queue.queue.count, 1);
+    assert.equal(queue.queue.items[0].client_name, "Petals to the Metal");
+    assert.equal(queue.queue.items[0].workflow_status, "processing");
+    assert.equal(queue.queue.items[0].request_reference, "Order #9101");
+  }, {
+    K8_WOOCOMMERCE_WEBHOOK_SECRET: "woo-test-secret",
+    K8_WOOCOMMERCE_CLIENT_NAME: "Petals to the Metal",
+    K8_WOOCOMMERCE_CLIENT_ID: "client_pttm",
+    K8_WOOCOMMERCE_PROJECT_ID: "project_pttm_commerce"
+  });
+});
+
+test("WooCommerce webhook rejects invalid signature", async () => {
+  await withServer(async ({ base }) => {
+    const response = await fetch(`${base}/api/v1/ingress/woocommerce/orders`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-wc-webhook-signature": "invalid"
+      },
+      body: JSON.stringify({ id: 9102, status: "processing" })
+    });
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).error, "invalid_woocommerce_signature");
+  }, { K8_WOOCOMMERCE_WEBHOOK_SECRET: "woo-test-secret" });
 });
