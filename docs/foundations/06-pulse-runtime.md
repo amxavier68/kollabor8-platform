@@ -1,10 +1,12 @@
 # K8 Pulse Runtime Contract v1.0
 
-Status: Foundation candidate
+Status: Commissioned in staging; Client Zero routing in progress
 
 ## Purpose
 
-K8 Pulse is the event and communications plane. It accepts business/system events, enforces idempotency, correlates work, routes events, records acknowledgement, and supports bounded retry, dead-letter handling and safe replay.
+K8 Pulse is Kollabor8's operational control plane. It accepts business/system events, governs state transitions, enforces idempotency, correlates and routes work, records acknowledgement, and supports bounded retry, dead-letter handling and safe replay.
+
+The Pulse UI is a separate human-facing interaction layer. For commerce workflows it sits between shop, customer and courier, projecting trusted Pulse state without becoming the system of record.
 
 ## Canonical event envelope
 
