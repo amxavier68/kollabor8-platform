@@ -1,6 +1,6 @@
 # Client Zero Reference Workflow — Daily Intelligence Briefing
 
-Status: Design-ready, not yet commissioned on the new runtime.
+Status: Runtime commissioned in staging; first Client Zero transition in implementation.
 
 ## Why this workflow
 
@@ -24,6 +24,7 @@ It already has mature operating rules and therefore tests the foundations withou
 5. Pulse creates and correlates the scheduled run and any failure/retry events.
 6. Delivery OS tracks the run as a work item when intervention is required.
 7. Atlas records source evidence, decisions, run state, delivery and failures.
+8. Pulse UI remains out of scope for this workflow; it is reserved for human operational surfaces such as shop/customer/courier coordination.
 
 ## Event sequence
 
