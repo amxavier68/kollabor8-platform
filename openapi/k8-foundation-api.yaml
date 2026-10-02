@@ -108,6 +108,15 @@ paths:
         "202": { description: Synthetic sandbox order created }
         "401": { description: API key missing or invalid }
         "404": { description: Sandbox ingress disabled }
+  /api/v1/ingress/woocommerce/orders:
+    post:
+      summary: Receive a signed WooCommerce order webhook
+      operationId: ingestWooCommerceOrder
+      responses:
+        "202": { description: Order observed and mapped into Pulse }
+        "400": { description: Invalid WooCommerce order payload }
+        "401": { description: Invalid WooCommerce webhook signature }
+        "503": { description: WooCommerce ingress not configured }
   /api/v1/operations/transactions:
     get:
       summary: List recent Operations Control service transactions
