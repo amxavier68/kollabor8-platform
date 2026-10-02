@@ -1,0 +1,83 @@
+openapi: 3.1.0
+info:
+  title: K8 Platform Foundation API
+  version: 0.1.0
+  description: Contract-first API for Pulse events, Delivery work items, approvals and Atlas evidence.
+servers:
+  - url: https://example.invalid
+    description: Placeholder only; no production endpoint is commissioned by this spec.
+paths:
+  /api/v1/events:
+    post:
+      summary: Ingest a Pulse event
+      operationId: ingestEvent
+      responses:
+        "202":
+          description: Event accepted or deduplicated
+        "400":
+          description: Invalid event envelope
+        "409":
+          description: Conflicting idempotency key
+  /api/v1/events/{eventId}:
+    get:
+      summary: Read event state
+      operationId: getEvent
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Event state }
+        "404": { description: Not found }
+  /api/v1/events/{eventId}/replay:
+    post:
+      summary: Request a safe replay
+      operationId: replayEvent
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+      responses:
+        "202": { description: Replay accepted after policy evaluation }
+        "409": { description: Replay unsafe or unavailable }
+  /api/v1/work-items:
+    post:
+      summary: Create a Delivery OS work item
+      operationId: createWorkItem
+      responses:
+        "201": { description: Work item created }
+  /api/v1/approvals:
+    post:
+      summary: Record an approval decision
+      operationId: recordApproval
+      responses:
+        "201": { description: Approval recorded }
+  /api/v1/evidence:
+    post:
+      summary: Append an Atlas evidence record
+      operationId: appendEvidence
+      responses:
+        "201": { description: Evidence appended }
+        "409": { description: Immutable record conflict }
+components:
+  schemas:
+    ApprovalLevel:
+      type: string
+      enum: [A0, A1, A2, A3]
+    RuntimeState:
+      type: string
+      enum:
+        - RECEIVED
+        - VALIDATED
+        - ROUTED
+        - AWAITING_APPROVAL
+        - RUNNING
+        - DEGRADED
+        - BLOCKED
+        - SAFE_STOP
+        - FAILED_RECOVERABLE
+        - FAILED_MANUAL
+        - COMPLETED
+        - DEAD_LETTER
