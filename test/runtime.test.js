@@ -7,7 +7,7 @@ import { MemoryStore } from "../src/storage/memory-store.js";
 async function withServer(fn) {
   const store = new MemoryStore();
   await store.init();
-  const app = createApp(store, { NODE_ENV: "test", K8_ENVIRONMENT: "test" });
+  const app = createApp(store, { NODE_ENV: "test", K8_ENVIRONMENT: "test", AUTH_DISABLED: "true", ALLOW_EPHEMERAL_MUTATIONS: "true" });
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
@@ -109,4 +109,24 @@ test("invalid events fail closed", async () => {
     });
     assert.equal(response.status, 400);
   });
+});
+
+test("ephemeral staging mutations safe-stop by default", async () => {
+  const store = new MemoryStore();
+  await store.init();
+  const app = createApp(store, { NODE_ENV: "staging", K8_ENVIRONMENT: "staging", AUTH_DISABLED: "true" });
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/v1/events`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(sampleEvent())
+    });
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, "safe_stop");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
