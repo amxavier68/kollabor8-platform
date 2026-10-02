@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test",
-    "check": "node --check src/server.js && node --test"
+    "check": "node --check src/server.js && npm run validate:contracts && node --test",
+    "validate:contracts": "node scripts/validate-contracts.js"
   },
   "dependencies": {
     "ajv": "^8.17.1",
