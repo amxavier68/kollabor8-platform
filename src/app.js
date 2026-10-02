@@ -3,6 +3,7 @@ import helmet from "helmet";
 import { id } from "./lib/ids.js";
 import { EvidenceService } from "./services/evidence-service.js";
 import { EventService } from "./services/event-service.js";
+import { RoutingService } from "./services/routing-service.js";
 import { apiKeyGuard, mutationGuard } from "./security/mutation-guard.js";
 
 export function createApp(store, env = process.env) {
@@ -12,7 +13,8 @@ export function createApp(store, env = process.env) {
   app.use(express.json({ limit: "256kb" }));
 
   const evidence = new EvidenceService(store, env);
-  const events = new EventService(store, evidence);
+  const router = new RoutingService(store, evidence);
+  const events = new EventService(store, evidence, router);
   const guard = mutationGuard(store, env);
   const readGuard = apiKeyGuard(env);
 
@@ -33,7 +35,7 @@ export function createApp(store, env = process.env) {
       if (result.type === "invalid") return res.status(400).json({ error: "invalid_event", details: result.errors });
       if (result.type === "conflict") return res.status(409).json({ error: "idempotency_conflict", event_id: result.event.event_id });
       if (result.type === "deduplicated") return res.status(202).json({ deduplicated: true, event: result.event });
-      return res.status(202).json({ deduplicated: false, event: result.event });
+      return res.status(202).json({ deduplicated: false, event: result.event, work_item: result.work_item ?? null });
     } catch (error) { next(error); }
   });
 
