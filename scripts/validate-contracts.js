@@ -11,10 +11,11 @@ function readJson(file) {
   return JSON.parse(fs.readFileSync(path.resolve(root, file), "utf8"));
 }
 
-function validateInstance(schemaFile, instanceFile) {
-  const schema = readJson(schemaFile);
+const contextValidator = ajv.compile(readJson("schemas/business-context.schema.json"));
+const skillValidator = ajv.compile(readJson("schemas/skill.schema.json"));
+
+function validateInstance(validator, instanceFile) {
   const instance = readJson(instanceFile);
-  const validator = ajv.compile(schema);
   const ok = validator(instance);
   if (!ok) {
     console.error(`Contract validation failed: ${instanceFile}`);
@@ -25,14 +26,14 @@ function validateInstance(schemaFile, instanceFile) {
   console.log(`PASS ${instanceFile}`);
 }
 
-validateInstance("schemas/business-context.schema.json", "contexts/kollabor8.context.v1.json");
+validateInstance(contextValidator, "contexts/kollabor8.context.v1.json");
 
 const skillFiles = fs.readdirSync(path.resolve(root, "skills"))
   .filter((name) => name.endsWith(".json"))
   .sort();
 
 for (const name of skillFiles) {
-  validateInstance("schemas/skill.schema.json", `skills/${name}`);
+  validateInstance(skillValidator, `skills/${name}`);
 }
 
 if (process.exitCode) process.exit(process.exitCode);
