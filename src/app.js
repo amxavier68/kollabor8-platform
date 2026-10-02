@@ -55,10 +55,14 @@ export function createApp(store, env = process.env) {
     try {
       const result = await wooSandbox.ingestOrder(req.body);
       if (result.type === "disabled") return res.status(404).json({ error: "sandbox_not_enabled" });
-      if (result.type === "invalid") return res.status(400).json({ error: result.error });
+      if (result.type === "invalid") {
+        return res.status(400).json({
+          error: result.error ?? "invalid_event",
+          ...(result.errors ? { details: result.errors } : {})
+        });
+      }
       if (result.type === "conflict") return res.status(409).json({ error: "idempotency_conflict", event_id: result.event.event_id });
       if (result.type === "deduplicated") return res.status(202).json({ deduplicated: true, event: result.event });
-      if (result.type === "invalid") return res.status(400).json({ error: "invalid_event", details: result.errors });
       return res.status(202).json({ deduplicated: false, event: result.event, work_item: result.work_item ?? null });
     } catch (error) { next(error); }
   });
