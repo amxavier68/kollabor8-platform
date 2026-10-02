@@ -1,15 +1,19 @@
 import express from "express";
+import helmet from "helmet";
 import { id } from "./lib/ids.js";
 import { EvidenceService } from "./services/evidence-service.js";
 import { EventService } from "./services/event-service.js";
+import { mutationGuard } from "./security/mutation-guard.js";
 
 export function createApp(store, env = process.env) {
   const app = express();
   app.disable("x-powered-by");
+  app.use(helmet());
   app.use(express.json({ limit: "256kb" }));
 
   const evidence = new EvidenceService(store, env);
   const events = new EventService(store, evidence);
+  const guard = mutationGuard(store, env);
 
   app.get("/health", (_req, res) => {
     const durable = store.kind === "mongo";
@@ -22,7 +26,7 @@ export function createApp(store, env = process.env) {
     });
   });
 
-  app.post("/api/v1/events", async (req, res, next) => {
+  app.post("/api/v1/events", guard, async (req, res, next) => {
     try {
       const result = await events.ingest(req.body);
       if (result.type === "invalid") return res.status(400).json({ error: "invalid_event", details: result.errors });
@@ -40,7 +44,7 @@ export function createApp(store, env = process.env) {
     } catch (error) { next(error); }
   });
 
-  app.post("/api/v1/events/:eventId/replay", async (req, res, next) => {
+  app.post("/api/v1/events/:eventId/replay", guard, async (req, res, next) => {
     try {
       const actor = req.body?.actor ?? { type: "human", id: "owner" };
       const result = await events.replay(req.params.eventId, actor);
@@ -50,14 +54,14 @@ export function createApp(store, env = process.env) {
     } catch (error) { next(error); }
   });
 
-  app.post("/api/v1/evidence", async (req, res, next) => {
+  app.post("/api/v1/evidence", guard, async (req, res, next) => {
     try {
       const record = await evidence.append(req.body);
       return res.status(201).json({ evidence: record });
     } catch (error) { next(error); }
   });
 
-  app.post("/api/v1/work-items", async (req, res, next) => {
+  app.post("/api/v1/work-items", guard, async (req, res, next) => {
     try {
       const now = new Date().toISOString();
       const record = {
@@ -88,7 +92,7 @@ export function createApp(store, env = process.env) {
     } catch (error) { next(error); }
   });
 
-  app.post("/api/v1/approvals", async (req, res, next) => {
+  app.post("/api/v1/approvals", guard, async (req, res, next) => {
     try {
       const record = {
         approval_id: req.body.approval_id ?? id("apr"),
