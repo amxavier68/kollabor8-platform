@@ -91,6 +91,23 @@ paths:
         "200": { description: Evidence record }
         "401": { description: API key missing or invalid }
         "404": { description: Evidence record not found }
+  /api/v1/operations/transactions:
+    get:
+      summary: List recent Operations Control service transactions
+      operationId: listOperationsTransactions
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: state
+          schema: { type: string }
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        "200": { description: Service queue with party, request, state and activity context }
+        "401": { description: API key missing or invalid }
   /api/v1/operations/transactions/{correlationId}:
     get:
       summary: Read a correlated Operations Control transaction view
