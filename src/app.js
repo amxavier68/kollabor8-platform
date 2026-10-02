@@ -3,7 +3,7 @@ import helmet from "helmet";
 import { id } from "./lib/ids.js";
 import { EvidenceService } from "./services/evidence-service.js";
 import { EventService } from "./services/event-service.js";
-import { mutationGuard } from "./security/mutation-guard.js";
+import { apiKeyGuard, mutationGuard } from "./security/mutation-guard.js";
 
 export function createApp(store, env = process.env) {
   const app = express();
@@ -14,6 +14,7 @@ export function createApp(store, env = process.env) {
   const evidence = new EvidenceService(store, env);
   const events = new EventService(store, evidence);
   const guard = mutationGuard(store, env);
+  const readGuard = apiKeyGuard(env);
 
   app.get("/health", (_req, res) => {
     const durable = store.kind === "mongo";
@@ -51,6 +52,30 @@ export function createApp(store, env = process.env) {
       if (result.type === "not_found") return res.status(404).json({ error: "event_not_found" });
       if (result.type === "unsafe") return res.status(409).json({ error: "replay_not_permitted", state: result.event.state });
       return res.status(202).json({ event: result.event });
+    } catch (error) { next(error); }
+  });
+
+  app.get("/api/v1/evidence", readGuard, async (req, res, next) => {
+    try {
+      const eventId = req.query.event_id ? String(req.query.event_id) : undefined;
+      const correlationId = req.query.correlation_id ? String(req.query.correlation_id) : undefined;
+      if (!eventId && !correlationId) {
+        return res.status(400).json({ error: "evidence_filter_required" });
+      }
+      const evidenceRecords = await store.findEvidence({
+        eventId,
+        correlationId,
+        limit: req.query.limit
+      });
+      return res.json({ evidence: evidenceRecords });
+    } catch (error) { next(error); }
+  });
+
+  app.get("/api/v1/evidence/:evidenceId", readGuard, async (req, res, next) => {
+    try {
+      const record = await store.getEvidence(req.params.evidenceId);
+      if (!record) return res.status(404).json({ error: "evidence_not_found" });
+      return res.json({ evidence: record });
     } catch (error) { next(error); }
   });
 
