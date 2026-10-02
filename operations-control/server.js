@@ -109,6 +109,18 @@ app.post("/logout", (req, res) => {
   res.redirect("/");
 });
 
+app.post("/api/sandbox/woocommerce/demo-order", requireOperator, async (_req, res) => {
+  try {
+    const result = await platform("/api/v1/ingress/woocommerce/sandbox/demo-order", {
+      method: "POST",
+      body: "{}"
+    });
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    res.status(502).json({ error: "platform_unavailable", message: error.message });
+  }
+});
+
 app.get("/api/transactions", requireOperator, async (req, res) => {
   try {
     const params = new URLSearchParams();
@@ -181,10 +193,11 @@ header{background:var(--navy);color:#fff;padding:24px 26px;border-radius:18px;di
 </style></head><body><div class="wrap">
 <header><div><div class="eyebrow">K8 Operations Control</div><h1>Service Operations Centre</h1><div class="sub">See who Kollabor8 is supporting, what they asked for, where the transaction is now, and what needs intervention. Technical IDs are available, but they are no longer the starting point.</div></div><form method="post" action="/logout"><button class="logout">Sign out</button></form></header>
 
-<section class="toolbar">
+<section class="toolbar" style="grid-template-columns:1fr 180px auto auto">
 <input id="search" placeholder="Search customer/client, request, order/reference or transaction ID" aria-label="Search service queue">
 <select id="state"><option value="">All states</option><option>VALIDATED</option><option>ROUTED</option><option>RUNNING</option><option>BLOCKED</option><option>SAFE_STOP</option><option>FAILED_RECOVERABLE</option><option>FAILED_MANUAL</option><option>COMPLETED</option><option>DEAD_LETTER</option></select>
 <button id="refresh" class="button">Refresh queue</button>
+<button id="demo" class="button secondary">Create demo Woo order</button>
 </section>
 <div id="error" class="error hidden"></div>
 
@@ -235,7 +248,9 @@ async function loadQueue(){clearError();const p=new URLSearchParams({limit:"100"
 async function openTransaction(id){clearError();currentId=id;currentItem=queueItems.find(i=>i.correlation_id===id)||null;const r=await fetch("/api/transactions/"+encodeURIComponent(id));const b=await r.json();if(!r.ok){showError(b.error||b.message||"Transaction could not be loaded");return}renderDetail(b.transaction)}
 function renderDetail(tx){q("detail-empty").classList.add("hidden");q("detail-content").classList.remove("hidden");const i=currentItem||{};q("detail-request").textContent=i.request_type||tx.events.at(-1)?.event_name||"Transaction";q("detail-ref").textContent=i.request_reference||"";q("detail-state").className=pill(tx.current_state);q("detail-state").textContent=tx.current_state||"UNKNOWN";q("detail-who").textContent=i.display_name||"Unidentified party";q("detail-party").textContent=(i.party_type||"unknown")+(i.channel?" · "+i.channel:"");q("detail-summary").textContent=i.summary||"";q("detail-corr").textContent=tx.correlation_id;q("detail-work").textContent=tx.open_work_items;q("detail-evidence").textContent=tx.counts.evidence;q("detail-approvals").textContent=tx.counts.approvals;
 q("timeline").innerHTML=tx.timeline.map(x=>{const r=x.record||{},label=x.type==="event"?r.event_name:x.type==="work_item"?r.title:x.type==="approval"?"Approval "+r.decision:r.action,status=r.state||r.result||"";return '<div class="item"><div class="itemtop"><div><div class="type">'+esc(x.type.replace("_"," "))+'</div><div class="title">'+esc(label||"Recorded activity")+'</div></div><div class="time">'+esc(fmt(x.at))+'</div></div>'+(status?'<div class="meta">State/result: <strong>'+esc(status)+'</strong></div>':'')+'</div>'}).join("")}
-q("refresh").onclick=loadQueue;q("state").onchange=loadQueue;let timer;q("search").oninput=()=>{clearTimeout(timer);timer=setTimeout(loadQueue,250)};
+q("refresh").onclick=loadQueue;
+q("demo").onclick=async()=>{clearError();q("demo").disabled=true;q("demo").textContent="Creating…";try{const r=await fetch("/api/sandbox/woocommerce/demo-order",{method:"POST"});const b=await r.json();if(!r.ok){showError(b.error||b.message||"Demo order could not be created");return}await loadQueue();const id=b.event?.correlation_id;if(id){q("search").value=id;await loadQueue();await openTransaction(id)}}finally{q("demo").disabled=false;q("demo").textContent="Create demo Woo order"}};
+q("state").onchange=loadQueue;let timer;q("search").oninput=()=>{clearTimeout(timer);timer=setTimeout(loadQueue,250)};
 q("intervention").onsubmit=async e=>{e.preventDefault();if(!currentId)return;clearError();const r=await fetch("/api/transactions/"+encodeURIComponent(currentId)+"/interventions",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({requested_action:q("action").value.trim(),reason:q("reason").value.trim(),customer_impact:q("impact").value.trim()})});const b=await r.json();if(!r.ok){showError(b.error||b.message||"Intervention failed");return}q("notice").textContent="Governed intervention created: "+(b.work_item?.work_item_id||"recorded");q("notice").classList.remove("hidden");q("action").value=q("reason").value=q("impact").value="";await loadQueue();await openTransaction(currentId)};
 loadQueue();
 </script></body></html>`;
