@@ -56,6 +56,17 @@ export function createApp(store, env = process.env) {
     } catch (error) { next(error); }
   });
 
+  app.get("/api/v1/ingress/woocommerce/orders", (_req, res) => {
+    return res.json({
+      ok: true,
+      service: "woocommerce-order-ingress",
+      method: "POST",
+      configured: wooIngress.configured(),
+      client_name: env.K8_WOOCOMMERCE_CLIENT_NAME ?? "Petals to the Metal",
+      environment: env.K8_ENVIRONMENT ?? "staging"
+    });
+  });
+
   app.post("/api/v1/ingress/woocommerce/orders", async (req, res, next) => {
     try {
       const result = await wooIngress.ingestWebhook({
