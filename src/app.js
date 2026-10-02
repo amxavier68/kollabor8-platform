@@ -121,6 +121,17 @@ export function createApp(store, env = process.env) {
     } catch (error) { next(error); }
   });
 
+  app.get("/api/v1/operations/transactions", readGuard, async (req, res, next) => {
+    try {
+      const queue = await operations.queue({
+        limit: req.query.limit,
+        state: req.query.state ? String(req.query.state) : undefined,
+        search: req.query.search ? String(req.query.search) : undefined
+      });
+      return res.json({ queue });
+    } catch (error) { next(error); }
+  });
+
   app.get("/api/v1/operations/transactions/:correlationId", readGuard, async (req, res, next) => {
     try {
       const transaction = await operations.transaction(req.params.correlationId);
