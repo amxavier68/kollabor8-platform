@@ -5,9 +5,10 @@ import { validate } from "../validation.js";
 const REPLAYABLE = new Set(["SAFE_STOP", "FAILED_RECOVERABLE", "DEAD_LETTER"]);
 
 export class EventService {
-  constructor(store, evidence) {
+  constructor(store, evidence, router = null) {
     this.store = store;
     this.evidence = evidence;
+    this.router = router;
   }
 
   async ingest(event) {
@@ -40,6 +41,11 @@ export class EventService {
       actor: event.actor,
       validation: { schema: "pulse-event.schema.json", valid: true }
     });
+
+    if (this.router) {
+      const routed = await this.router.route(stored);
+      return { type: "accepted", event: routed.event, work_item: routed.workItem };
+    }
 
     return { type: "accepted", event: stored };
   }
