@@ -109,6 +109,20 @@ app.post("/logout", (req, res) => {
   res.redirect("/");
 });
 
+app.get("/api/transactions", requireOperator, async (req, res) => {
+  try {
+    const params = new URLSearchParams();
+    if (req.query.limit) params.set("limit", String(req.query.limit));
+    if (req.query.state) params.set("state", String(req.query.state));
+    if (req.query.search) params.set("search", String(req.query.search));
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    const result = await platform(`/api/v1/operations/transactions${suffix}`);
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    res.status(502).json({ error: "platform_unavailable", message: error.message });
+  }
+});
+
 app.get("/api/transactions/:correlationId", requireOperator, async (req, res) => {
   try {
     const result = await platform(`/api/v1/operations/transactions/${encodeURIComponent(req.params.correlationId)}`);
@@ -156,43 +170,74 @@ function consoleHtml() {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>K8 Operations Control</title>
 <style>
-:root{--bg:#f5f7fb;--ink:#0f172a;--muted:#64748b;--line:#dbe3ee;--card:#fff;--indigo:#4f46e5;--navy:#07111f;--good:#047857;--warn:#b45309;--bad:#b91c1c}
-*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:16px}.wrap{max-width:1440px;margin:auto;padding:24px}
-header{background:var(--navy);color:#fff;padding:26px;border-radius:20px;display:flex;justify-content:space-between;gap:20px;align-items:end}.eyebrow{font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:#7dd3fc;font-weight:800}h1{font-size:32px;margin:7px 0}.sub{color:#b8c4d5;max-width:800px;line-height:1.5}
-.logout{background:transparent;border:1px solid #40506a;color:#fff;border-radius:10px;padding:10px 14px;font-weight:700}.search,.card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 4px 18px #10233b0d}.search{padding:18px;margin-top:20px;display:flex;gap:10px}
-input,textarea{width:100%;padding:13px 14px;border:1px solid #cbd5e1;border-radius:11px;font:inherit;background:#fff}.search button,.primary{border:0;background:var(--indigo);color:#fff;font-weight:800;border-radius:11px;padding:12px 18px;white-space:nowrap;cursor:pointer}
-.summary{display:grid;grid-template-columns:2fr repeat(3,1fr);gap:14px;margin:18px 0}.card{padding:18px}.label{font-size:14px;color:var(--muted)}.metric{font-size:28px;font-weight:850;margin-top:5px}.state{display:inline-block;margin-top:8px;padding:7px 11px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:800}.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,.75fr);gap:18px}.timeline{display:flex;flex-direction:column;gap:12px;margin-top:16px}.item{border-left:4px solid #818cf8;background:#f8fafc;border-radius:0 12px 12px 0;padding:14px}.itemtop{display:flex;justify-content:space-between;gap:16px}.type{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:#6366f1;font-weight:850}.title{font-weight:800;margin-top:4px}.time{font-size:13px;color:var(--muted);white-space:nowrap}.side{display:flex;flex-direction:column;gap:18px}label{font-size:14px;font-weight:800;display:block;margin:14px 0 6px}textarea{min-height:92px;resize:vertical}.primary{width:100%;margin-top:14px}.notice{margin-top:14px;padding:12px;border-radius:10px;background:#ecfeff;color:#155e75}.error{margin-top:14px;padding:12px;border-radius:10px;background:#fee2e2;color:#991b1b}.hidden{display:none}
-@media(max-width:900px){.summary{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}header{align-items:start;flex-direction:column}.search{flex-direction:column}.wrap{padding:14px}}@media(max-width:560px){.summary{grid-template-columns:1fr}.itemtop{flex-direction:column}}
+:root{--bg:#f3f6fa;--ink:#0f172a;--muted:#64748b;--line:#d9e2ec;--card:#fff;--indigo:#4338ca;--navy:#07111f;--good:#047857;--warn:#a16207;--bad:#b91c1c;--blue:#0369a1}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);font-size:16px}.wrap{max-width:1540px;margin:auto;padding:20px}
+header{background:var(--navy);color:#fff;padding:24px 26px;border-radius:18px;display:flex;justify-content:space-between;gap:20px;align-items:center}.eyebrow{font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:#7dd3fc;font-weight:850}h1{font-size:30px;margin:6px 0}.sub{color:#b8c4d5;max-width:880px;line-height:1.5}.logout{background:transparent;border:1px solid #40506a;color:#fff;border-radius:10px;padding:10px 14px;font-weight:750;cursor:pointer}
+.toolbar,.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 4px 18px #10233b0d}.toolbar{padding:14px;margin-top:16px;display:grid;grid-template-columns:1fr 180px auto;gap:10px}.toolbar input,.toolbar select,input,textarea{width:100%;padding:12px 13px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;background:#fff}.button,.primary{border:0;background:var(--indigo);color:#fff;font-weight:800;border-radius:10px;padding:12px 16px;cursor:pointer}.button.secondary{background:#eef2ff;color:#3730a3}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}.card{padding:16px}.label{font-size:14px;color:var(--muted)}.metric{font-size:28px;font-weight:850;margin-top:4px}.opsgrid{display:grid;grid-template-columns:minmax(720px,1.45fr) minmax(400px,.8fr);gap:16px}.queuecard{padding:0;overflow:hidden}.queuehead{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.queuehead h2,.detail h2{margin:0;font-size:20px}.small{font-size:13px;color:var(--muted)}
+.tablewrap{overflow:auto;max-height:68vh}table{width:100%;border-collapse:collapse;min-width:900px}th{position:sticky;top:0;background:#f8fafc;text-align:left;padding:11px 12px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;border-bottom:1px solid var(--line);z-index:1}td{padding:13px 12px;border-bottom:1px solid #eef2f7;vertical-align:top}tr[data-id]{cursor:pointer}tr[data-id]:hover{background:#f8fafc}.who{font-weight:800}.meta{font-size:13px;color:var(--muted);margin-top:3px}.ref{font-family:ui-monospace,SFMono-Regular,monospace;font-size:13px}.pill{display:inline-flex;padding:5px 8px;border-radius:999px;font-size:12px;font-weight:800;background:#e2e8f0;color:#334155}.pill.good{background:#dcfce7;color:#166534}.pill.warn{background:#fef3c7;color:#92400e}.pill.bad{background:#fee2e2;color:#991b1b}.pill.blue{background:#e0f2fe;color:#075985}
+.detail{min-height:420px}.empty{display:grid;place-items:center;min-height:420px;text-align:center;color:#64748b;padding:30px}.identity{padding:14px;background:#f8fafc;border:1px solid var(--line);border-radius:12px;margin:14px 0}.identity .name{font-size:21px;font-weight:850}.facts{display:grid;grid-template-columns:1fr 1fr;gap:10px}.fact{padding:10px;background:#f8fafc;border-radius:10px}.timeline{display:flex;flex-direction:column;gap:9px;margin-top:14px;max-height:340px;overflow:auto}.item{border-left:4px solid #818cf8;background:#f8fafc;border-radius:0 10px 10px 0;padding:10px 12px}.itemtop{display:flex;justify-content:space-between;gap:10px}.type{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#6366f1;font-weight:850}.title{font-weight:800;margin-top:3px}.time{font-size:12px;color:var(--muted);white-space:nowrap}.sectiontitle{font-size:16px;font-weight:850;margin:18px 0 6px}label{font-size:13px;font-weight:800;display:block;margin:10px 0 5px}textarea{min-height:70px;resize:vertical}.primary{width:100%;margin-top:10px}.notice{margin-top:10px;padding:10px;border-radius:9px;background:#ecfeff;color:#155e75}.error{margin-top:12px;padding:11px;border-radius:10px;background:#fee2e2;color:#991b1b}.hidden{display:none}
+@media(max-width:1150px){.opsgrid{grid-template-columns:1fr}.tablewrap{max-height:none}.detail{min-height:auto}.empty{min-height:220px}}@media(max-width:760px){.toolbar{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}header{align-items:flex-start;flex-direction:column}.wrap{padding:12px}}@media(max-width:480px){.kpis{grid-template-columns:1fr}.facts{grid-template-columns:1fr}}
 </style></head><body><div class="wrap">
-<header><div><div class="eyebrow">K8 Operations Control</div><h1>Transaction Support Console</h1><div class="sub">Trace Pulse gates, Delivery OS work, approvals and Atlas evidence. Create governed support interventions without directly rewriting transaction state.</div></div><form method="post" action="/logout"><button class="logout">Sign out</button></form></header>
-<section class="search"><input id="correlation" placeholder="Correlation ID — e.g. briefing:2026-10-03 or order:10428" aria-label="Correlation ID"><button id="load">Load transaction</button></section>
-<div id="error" class="error hidden"></div>
-<div id="content" class="hidden">
-<section class="summary">
-<div class="card"><div class="label">Current state</div><div id="state" class="state">—</div><div id="corr" class="label" style="margin-top:10px"></div></div>
-<div class="card"><div class="label">Events</div><div id="events" class="metric">0</div></div>
-<div class="card"><div class="label">Open work</div><div id="work" class="metric">0</div></div>
-<div class="card"><div class="label">Evidence</div><div id="evidence" class="metric">0</div></div>
+<header><div><div class="eyebrow">K8 Operations Control</div><h1>Service Operations Centre</h1><div class="sub">See who Kollabor8 is supporting, what they asked for, where the transaction is now, and what needs intervention. Technical IDs are available, but they are no longer the starting point.</div></div><form method="post" action="/logout"><button class="logout">Sign out</button></form></header>
+
+<section class="toolbar">
+<input id="search" placeholder="Search customer/client, request, order/reference or transaction ID" aria-label="Search service queue">
+<select id="state"><option value="">All states</option><option>VALIDATED</option><option>ROUTED</option><option>RUNNING</option><option>BLOCKED</option><option>SAFE_STOP</option><option>FAILED_RECOVERABLE</option><option>FAILED_MANUAL</option><option>COMPLETED</option><option>DEAD_LETTER</option></select>
+<button id="refresh" class="button">Refresh queue</button>
 </section>
-<div class="grid"><section class="card"><h2>Gate & evidence timeline</h2><div class="label">Oldest to newest across Pulse, Delivery OS, approvals and Atlas.</div><div id="timeline" class="timeline"></div></section>
-<aside class="side"><section class="card"><h2>Support mediation</h2><div class="label">Creates an A1 governed work item; it does not directly mutate the transaction.</div>
-<form id="intervention"><label>Requested action</label><input id="action" placeholder="review-courier-assignment" required><label>Reason</label><textarea id="reason" placeholder="What happened and why support needs to intervene" required></textarea><label>Customer impact</label><textarea id="impact" placeholder="Optional customer impact or communication context"></textarea><button class="primary">Create governed intervention</button></form><div id="notice" class="notice hidden"></div></section>
-<section class="card"><h2>Support snapshot</h2><div id="snapshot" class="label"></div></section></aside></div></div>
+<div id="error" class="error hidden"></div>
+
+<section class="kpis">
+<div class="card"><div class="label">Transactions in view</div><div id="kpi-total" class="metric">0</div></div>
+<div class="card"><div class="label">Customer / client work</div><div id="kpi-external" class="metric">0</div></div>
+<div class="card"><div class="label">Blocked / recovery</div><div id="kpi-blocked" class="metric">0</div></div>
+<div class="card"><div class="label">Internal K8 work</div><div id="kpi-internal" class="metric">0</div></div>
+</section>
+
+<div class="opsgrid">
+<section class="card queuecard">
+<div class="queuehead"><div><h2>Service queue</h2><div class="small">Who we are helping and what they need</div></div><div id="generated" class="small"></div></div>
+<div class="tablewrap"><table><thead><tr><th>Who</th><th>Request</th><th>Reference</th><th>State</th><th>Priority / SLA</th><th>Last activity</th></tr></thead><tbody id="queue"></tbody></table></div>
+</section>
+
+<aside class="card detail">
+<div id="detail-empty" class="empty"><div><div style="font-size:36px">↖</div><strong>Select a transaction</strong><div class="small" style="margin-top:6px">Choose a customer/client request from the service queue to see every gate and support action.</div></div></div>
+<div id="detail-content" class="hidden">
+<div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><div><h2 id="detail-request">Transaction</h2><div id="detail-ref" class="small"></div></div><span id="detail-state" class="pill"></span></div>
+<div class="identity"><div class="label">Who we are supporting</div><div id="detail-who" class="name"></div><div id="detail-party" class="small"></div><div id="detail-summary" class="small" style="margin-top:7px"></div></div>
+<div class="facts">
+<div class="fact"><div class="label">Transaction ID</div><div id="detail-corr" class="ref"></div></div>
+<div class="fact"><div class="label">Open work</div><div id="detail-work" style="font-weight:800"></div></div>
+<div class="fact"><div class="label">Evidence</div><div id="detail-evidence" style="font-weight:800"></div></div>
+<div class="fact"><div class="label">Approvals</div><div id="detail-approvals" style="font-weight:800"></div></div>
 </div>
+<div class="sectiontitle">Gate & evidence timeline</div><div id="timeline" class="timeline"></div>
+<div class="sectiontitle">Support mediation</div><div class="small">Creates governed A1 work; it does not silently rewrite the transaction.</div>
+<form id="intervention"><label>Requested action</label><input id="action" placeholder="e.g. review-courier-assignment" required><label>Reason</label><textarea id="reason" placeholder="What happened and why support needs to intervene" required></textarea><label>Customer impact / communication context</label><textarea id="impact" placeholder="Optional"></textarea><button class="primary">Create governed intervention</button></form><div id="notice" class="notice hidden"></div>
+</div>
+</aside>
+</div></div>
 <script>
-let currentId="";
-const q=(id)=>document.getElementById(id);
-const esc=(v)=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function showError(message){q("error").textContent=message;q("error").classList.remove("hidden")}
-function clearError(){q("error").classList.add("hidden")}
-function fmt(v){if(!v)return"—";const d=new Date(v);return isNaN(d)?v:d.toLocaleString()}
-function render(tx){currentId=tx.correlation_id;q("content").classList.remove("hidden");q("state").textContent=tx.current_state||"UNKNOWN";q("corr").textContent=tx.correlation_id;q("events").textContent=tx.counts.events;q("work").textContent=tx.open_work_items;q("evidence").textContent=tx.counts.evidence;
-q("timeline").innerHTML=tx.timeline.map(item=>{const r=item.record||{};const label=item.type==="event"?r.event_name:item.type==="work_item"?r.title:item.type==="approval"?"Approval "+r.decision:r.action;const status=r.state||r.result||"";return '<div class="item"><div class="itemtop"><div><div class="type">'+esc(item.type.replace("_"," "))+'</div><div class="title">'+esc(label||"Recorded activity")+'</div></div><div class="time">'+esc(fmt(item.at))+'</div></div>'+(status?'<div class="label" style="margin-top:8px">State/result: <strong>'+esc(status)+'</strong></div>':"")+'</div>'}).join("");
-const blockers=tx.events.filter(e=>["BLOCKED","SAFE_STOP","FAILED_RECOVERABLE","FAILED_MANUAL","DEAD_LETTER"].includes(e.state)).length;
-q("snapshot").innerHTML='<p>Current event: <strong>'+esc(tx.current_event_id||"—")+'</strong></p><p>Approvals: <strong>'+tx.counts.approvals+'</strong></p><p>Blockers/recovery states: <strong>'+blockers+'</strong></p><p>Evidence records: <strong>'+tx.counts.evidence+'</strong></p>'}
-async function load(){clearError();q("notice").classList.add("hidden");const id=q("correlation").value.trim();if(!id)return;const res=await fetch("/api/transactions/"+encodeURIComponent(id));const body=await res.json();if(!res.ok){showError(body.error||body.message||"Transaction could not be loaded");return}render(body.transaction)}
-q("load").onclick=load;q("correlation").addEventListener("keydown",e=>{if(e.key==="Enter")load()});
-q("intervention").onsubmit=async(e)=>{e.preventDefault();clearError();if(!currentId)return;const res=await fetch("/api/transactions/"+encodeURIComponent(currentId)+"/interventions",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({requested_action:q("action").value.trim(),reason:q("reason").value.trim(),customer_impact:q("impact").value.trim()})});const body=await res.json();if(!res.ok){showError(body.error||body.message||"Intervention failed");return}q("notice").textContent="Governed intervention created: "+(body.work_item?.work_item_id||"recorded");q("notice").classList.remove("hidden");q("action").value="";q("reason").value="";q("impact").value="";await load()};
+let queueItems=[],currentId="",currentItem=null;
+const q=id=>document.getElementById(id);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const badStates=["BLOCKED","SAFE_STOP","FAILED_RECOVERABLE","FAILED_MANUAL","DEAD_LETTER"];
+function showError(m){q("error").textContent=m;q("error").classList.remove("hidden")} function clearError(){q("error").classList.add("hidden")}
+function fmt(v){if(!v)return"—";const d=new Date(v);return isNaN(d.getTime())?v:d.toLocaleString()}
+function age(v){if(!v)return"—";const n=Date.now()-new Date(v).getTime();if(n<60000)return"<1m";if(n<3600000)return Math.floor(n/60000)+"m";if(n<86400000)return Math.floor(n/3600000)+"h";return Math.floor(n/86400000)+"d"}
+function pill(state){return badStates.includes(state)?"pill bad":state==="COMPLETED"?"pill good":state==="RUNNING"||state==="ROUTED"?"pill blue":"pill"}
+function sla(item){if(!item.sla_due_at)return '<span class="small">'+esc(item.priority||"normal")+'</span>';const overdue=new Date(item.sla_due_at).getTime()<Date.now();return '<span class="'+(overdue?"pill bad":"pill warn")+'">'+esc(overdue?"SLA overdue":"SLA "+fmt(item.sla_due_at))+'</span>'}
+function renderQueue(data){queueItems=data.items||[];q("generated").textContent="Updated "+fmt(data.generated_at);q("kpi-total").textContent=queueItems.length;q("kpi-external").textContent=queueItems.filter(i=>["customer","client","partner"].includes(i.party_type)).length;q("kpi-blocked").textContent=queueItems.filter(i=>badStates.includes(i.current_state)).length;q("kpi-internal").textContent=queueItems.filter(i=>i.party_type==="internal").length;
+q("queue").innerHTML=queueItems.length?queueItems.map(i=>'<tr data-id="'+esc(i.correlation_id)+'"><td><div class="who">'+esc(i.display_name)+'</div><div class="meta">'+esc(i.party_type)+(i.party_id?' · '+esc(i.party_id):'')+'</div></td><td><strong>'+esc(i.request_type)+'</strong>'+(i.summary?'<div class="meta">'+esc(i.summary)+'</div>':'')+'</td><td><div class="ref">'+esc(i.request_reference)+'</div><div class="meta">'+esc(i.correlation_id)+'</div></td><td><span class="'+pill(i.current_state)+'">'+esc(i.current_state||"UNKNOWN")+'</span></td><td>'+sla(i)+'</td><td>'+esc(fmt(i.last_activity_at))+'<div class="meta">'+esc(age(i.last_activity_at))+' ago</div></td></tr>').join(""):'<tr><td colspan="6" style="padding:30px;text-align:center;color:#64748b">No matching transactions.</td></tr>';
+document.querySelectorAll("tr[data-id]").forEach(row=>row.onclick=()=>openTransaction(row.dataset.id))}
+async function loadQueue(){clearError();const p=new URLSearchParams({limit:"100"});if(q("search").value.trim())p.set("search",q("search").value.trim());if(q("state").value)p.set("state",q("state").value);const r=await fetch("/api/transactions?"+p);const b=await r.json();if(!r.ok){showError(b.error||b.message||"Queue could not be loaded");return}renderQueue(b.queue)}
+async function openTransaction(id){clearError();currentId=id;currentItem=queueItems.find(i=>i.correlation_id===id)||null;const r=await fetch("/api/transactions/"+encodeURIComponent(id));const b=await r.json();if(!r.ok){showError(b.error||b.message||"Transaction could not be loaded");return}renderDetail(b.transaction)}
+function renderDetail(tx){q("detail-empty").classList.add("hidden");q("detail-content").classList.remove("hidden");const i=currentItem||{};q("detail-request").textContent=i.request_type||tx.events.at(-1)?.event_name||"Transaction";q("detail-ref").textContent=i.request_reference||"";q("detail-state").className=pill(tx.current_state);q("detail-state").textContent=tx.current_state||"UNKNOWN";q("detail-who").textContent=i.display_name||"Unidentified party";q("detail-party").textContent=(i.party_type||"unknown")+(i.channel?" · "+i.channel:"");q("detail-summary").textContent=i.summary||"";q("detail-corr").textContent=tx.correlation_id;q("detail-work").textContent=tx.open_work_items;q("detail-evidence").textContent=tx.counts.evidence;q("detail-approvals").textContent=tx.counts.approvals;
+q("timeline").innerHTML=tx.timeline.map(x=>{const r=x.record||{},label=x.type==="event"?r.event_name:x.type==="work_item"?r.title:x.type==="approval"?"Approval "+r.decision:r.action,status=r.state||r.result||"";return '<div class="item"><div class="itemtop"><div><div class="type">'+esc(x.type.replace("_"," "))+'</div><div class="title">'+esc(label||"Recorded activity")+'</div></div><div class="time">'+esc(fmt(x.at))+'</div></div>'+(status?'<div class="meta">State/result: <strong>'+esc(status)+'</strong></div>':'')+'</div>'}).join("")}
+q("refresh").onclick=loadQueue;q("state").onchange=loadQueue;let timer;q("search").oninput=()=>{clearTimeout(timer);timer=setTimeout(loadQueue,250)};
+q("intervention").onsubmit=async e=>{e.preventDefault();if(!currentId)return;clearError();const r=await fetch("/api/transactions/"+encodeURIComponent(currentId)+"/interventions",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({requested_action:q("action").value.trim(),reason:q("reason").value.trim(),customer_impact:q("impact").value.trim()})});const b=await r.json();if(!r.ok){showError(b.error||b.message||"Intervention failed");return}q("notice").textContent="Governed intervention created: "+(b.work_item?.work_item_id||"recorded");q("notice").classList.remove("hidden");q("action").value=q("reason").value=q("impact").value="";await loadQueue();await openTransaction(currentId)};
+loadQueue();
 </script></body></html>`;
 }
 
