@@ -91,6 +91,23 @@ paths:
         "200": { description: Evidence record }
         "401": { description: API key missing or invalid }
         "404": { description: Evidence record not found }
+  /api/v1/ingress/woocommerce/sandbox/orders:
+    post:
+      summary: Ingest a WooCommerce-shaped sandbox order into Pulse
+      operationId: ingestWooCommerceSandboxOrder
+      responses:
+        "202": { description: Sandbox order accepted into Pulse }
+        "400": { description: Invalid WooCommerce sandbox order }
+        "401": { description: API key missing or invalid }
+        "404": { description: Sandbox ingress disabled }
+  /api/v1/ingress/woocommerce/sandbox/demo-order:
+    post:
+      summary: Create one synthetic WooCommerce sandbox order
+      operationId: createWooCommerceSandboxDemoOrder
+      responses:
+        "202": { description: Synthetic sandbox order created }
+        "401": { description: API key missing or invalid }
+        "404": { description: Sandbox ingress disabled }
   /api/v1/operations/transactions:
     get:
       summary: List recent Operations Control service transactions
