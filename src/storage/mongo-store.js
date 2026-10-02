@@ -20,6 +20,7 @@ export class MongoStore {
       this.events.createIndex({ organisation_id: 1, idempotency_key: 1 }, { unique: true }),
       this.events.createIndex({ correlation_id: 1, received_at: -1 }),
       this.evidence.createIndex({ evidence_id: 1 }, { unique: true }),
+      this.evidence.createIndex({ event_id: 1, created_at: 1 }),
       this.evidence.createIndex({ correlation_id: 1, created_at: 1 }),
       this.workItems.createIndex({ work_item_id: 1 }, { unique: true }),
       this.workItems.createIndex({ organisation_id: 1, state: 1, created_at: -1 }),
@@ -50,6 +51,21 @@ export class MongoStore {
   async appendEvidence(record) {
     await this.evidence.insertOne(record);
     return record;
+  }
+
+  async getEvidence(evidenceId) {
+    return this.evidence.findOne({ evidence_id: evidenceId }, { projection: { _id: 0 } });
+  }
+
+  async findEvidence({ eventId, correlationId, limit = 50 } = {}) {
+    const query = {};
+    if (eventId) query.event_id = eventId;
+    if (correlationId) query.correlation_id = correlationId;
+    return this.evidence
+      .find(query, { projection: { _id: 0 } })
+      .sort({ created_at: 1 })
+      .limit(Math.min(Math.max(Number(limit) || 50, 1), 100))
+      .toArray();
   }
 
   async insertWorkItem(record) {
