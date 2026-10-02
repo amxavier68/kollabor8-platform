@@ -182,6 +182,13 @@
             "null"
           ],
           "format": "date-time"
+        },
+        "workflow_status": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 80
         }
       },
       "additionalProperties": false
