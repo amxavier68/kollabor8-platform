@@ -10,6 +10,70 @@ export class OperationsControlService {
     this.evidence = evidence;
   }
 
+  async queue({ limit = 50, state, search } = {}) {
+    const recent = await this.store.findRecentEvents(500);
+    const latestByCorrelation = new Map();
+
+    for (const event of recent) {
+      if (!latestByCorrelation.has(event.correlation_id)) {
+        latestByCorrelation.set(event.correlation_id, event);
+      }
+    }
+
+    let items = [...latestByCorrelation.values()].map((event) => {
+      const service = event.service_context ?? {};
+      const internal = !event.client_id && event.organisation_id === "org_kollabor8";
+      const displayName =
+        service.display_name ??
+        (event.client_id ? event.client_id : internal ? "Kollabor8 (internal)" : "Unidentified party");
+      const requestType = service.request_type ?? event.subject?.id ?? event.event_name;
+      const reference = service.request_reference ?? event.correlation_id;
+
+      return {
+        correlation_id: event.correlation_id,
+        party_type: service.party_type ?? (internal ? "internal" : event.client_id ? "client" : "unknown"),
+        party_id: service.party_id ?? event.client_id ?? null,
+        display_name: displayName,
+        request_type: requestType,
+        request_reference: reference,
+        summary: service.summary ?? null,
+        channel: service.channel ?? null,
+        priority: service.priority ?? "normal",
+        sla_due_at: service.sla_due_at ?? null,
+        current_state: event.state ?? null,
+        latest_event_name: event.event_name,
+        latest_event_id: event.event_id,
+        last_activity_at: event.updated_at ?? event.received_at ?? event.occurred_at,
+        organisation_id: event.organisation_id,
+        project_id: event.project_id ?? null
+      };
+    });
+
+    if (state) items = items.filter((item) => item.current_state === state);
+    if (search) {
+      const needle = String(search).toLowerCase();
+      items = items.filter((item) =>
+        [
+          item.display_name,
+          item.request_type,
+          item.request_reference,
+          item.correlation_id,
+          item.summary,
+          item.party_id
+        ].some((value) => String(value ?? "").toLowerCase().includes(needle))
+      );
+    }
+
+    items.sort((a, b) => String(b.last_activity_at).localeCompare(String(a.last_activity_at)));
+    items = items.slice(0, Math.min(Math.max(Number(limit) || 50, 1), 100));
+
+    return {
+      count: items.length,
+      generated_at: new Date().toISOString(),
+      items
+    };
+  }
+
   async transaction(correlationId) {
     const [events, workItems, approvals, evidence] = await Promise.all([
       this.store.findEventsByCorrelation(correlationId),
