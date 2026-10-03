@@ -490,6 +490,8 @@ test("WooCommerce activation ping is accepted without signature", async () => {
     const response = await fetch(`${base}/api/v1/ingress/woocommerce/orders`, {
       method: "POST"
     });
-    assert.equal(response.status, 204);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.acknowledged, "woocommerce_activation_ping");
   }, { K8_WOOCOMMERCE_WEBHOOK_SECRET: "woo-test-secret" });
 });
