@@ -79,7 +79,7 @@ export function createApp(store, env = process.env) {
           level: "info",
           message: "woocommerce activation ping accepted"
         }));
-        return res.status(204).send();
+        return res.status(200).json({ ok: true, acknowledged: "woocommerce_activation_ping" });
       }
 
       const verified = wooIngress.verify(req.rawBody, suppliedSignature);
