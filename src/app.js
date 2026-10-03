@@ -7,6 +7,7 @@ import { RoutingService } from "./services/routing-service.js";
 import { OperationsControlService } from "./services/operations-control-service.js";
 import { WooCommerceSandboxService } from "./services/woocommerce-sandbox-service.js";
 import { WooCommerceIngressService } from "./services/woocommerce-ingress-service.js";
+import { CommerceWorkflowService } from "./services/commerce-workflow-service.js";
 import { apiKeyGuard, mutationGuard } from "./security/mutation-guard.js";
 
 export function createApp(store, env = process.env) {
@@ -19,7 +20,8 @@ export function createApp(store, env = process.env) {
   }));
 
   const evidence = new EvidenceService(store, env);
-  const router = new RoutingService(store, evidence);
+  const commerce = new CommerceWorkflowService(store, evidence);
+  const router = new RoutingService(store, evidence, commerce);
   const events = new EventService(store, evidence, router);
   const operations = new OperationsControlService(store, evidence);
   const wooSandbox = new WooCommerceSandboxService(events, env);
@@ -224,6 +226,23 @@ export function createApp(store, env = process.env) {
         return res.status(404).json({ error: "transaction_not_found" });
       }
       return res.json({ transaction });
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/v1/commerce/transactions/:correlationId/transitions", guard, async (req, res, next) => {
+    try {
+      const result = await commerce.transition(req.params.correlationId, req.body);
+      if (result.type === "not_found") return res.status(404).json({ error: "commerce_workflow_not_found" });
+      if (result.type === "invalid") return res.status(400).json({ error: "invalid_commerce_transition" });
+      if (result.type === "unsafe") {
+        return res.status(409).json({
+          error: "commerce_transition_not_permitted",
+          current_stage: result.current,
+          requested_stage: result.target
+        });
+      }
+      if (result.type === "deduplicated") return res.status(200).json({ deduplicated: true, work_item: result.workItem });
+      return res.status(200).json({ deduplicated: false, work_item: result.workItem });
     } catch (error) { next(error); }
   });
 
