@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test test/*.test.js",
-    "check": "node --check src/server.js && npm --prefix operations-control run check && npm run validate:contracts && npm test",
+    "check": "node --check src/server.js && npm --prefix operations-control run check && npm --prefix courier-control run check && npm run validate:contracts && npm test",
     "validate:contracts": "node scripts/validate-contracts.js",
     "prestart": "node --check src/server.js && npm run validate:contracts"
   },
