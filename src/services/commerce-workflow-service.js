@@ -113,6 +113,7 @@ export class CommerceWorkflowService {
       client_name: event.service_context?.client_name ?? null,
       customer_name: event.service_context?.display_name ?? null,
       order_reference: event.service_context?.request_reference ?? null,
+      customer_tracking_key_hash: event.payload?.order_key_hash ?? current?.customer_tracking_key_hash ?? null,
       delivery_destination: event.payload?.delivery ?? current?.delivery_destination ?? null,
       updated_at: now
     };
@@ -227,6 +228,54 @@ export class CommerceWorkflowService {
     });
 
     return { type: "accepted", workItem: updated, courierAccessToken };
+  }
+
+  customerMilestone(stage) {
+    const map = {
+      ORDER_RECEIVED: { code: "ORDER_RECEIVED", label: "Order received", step: 1 },
+      ACKNOWLEDGED: { code: "ORDER_RECEIVED", label: "Order received", step: 1 },
+      PREPARING: { code: "PREPARING", label: "Preparing", step: 2 },
+      READY_FOR_COURIER: { code: "PREPARING", label: "Preparing", step: 2 },
+      COURIER_ASSIGNED: { code: "PREPARING", label: "Preparing", step: 2 },
+      COURIER_ACCEPTED: { code: "PREPARING", label: "Preparing", step: 2 },
+      PICKED_UP: { code: "WITH_COURIER", label: "With courier", step: 3 },
+      DELIVERED: { code: "DELIVERED", label: "Delivered", step: 4 },
+      COMPLETED: { code: "DELIVERED", label: "Delivered", step: 4 },
+      EXCEPTION: { code: "CHECKING_ORDER", label: "We're checking your order", step: 2 },
+      CANCELLED: { code: "CANCELLED", label: "Cancelled", step: 0 },
+      REFUNDED: { code: "REFUNDED", label: "Refunded", step: 0 }
+    };
+    return map[stage] ?? { code: "ORDER_RECEIVED", label: "Order received", step: 1 };
+  }
+
+  validCustomerOrderKey(workItem, orderKey) {
+    if (!orderKey || !workItem.customer_tracking_key_hash) return false;
+    const supplied = crypto.createHash("sha256").update(String(orderKey)).digest("hex");
+    const left = Buffer.from(supplied, "hex");
+    const right = Buffer.from(String(workItem.customer_tracking_key_hash), "hex");
+    return left.length === right.length && left.length > 0 && crypto.timingSafeEqual(left, right);
+  }
+
+  async customerStatus(orderId, orderKey) {
+    const workItem = await this.store.getWorkItem(`work_commerce_${orderId}`);
+    if (!workItem) return { type: "not_found" };
+    if (!this.validCustomerOrderKey(workItem, orderKey)) return { type: "unauthorised" };
+    const milestone = this.customerMilestone(workItem.workflow_stage);
+    return {
+      type: "accepted",
+      status: {
+        order_reference: workItem.order_reference,
+        milestone,
+        updated_at: workItem.updated_at ?? null,
+        delivered_at: workItem.delivered_at ?? null,
+        stages: [
+          { code: "ORDER_RECEIVED", label: "Order received", step: 1 },
+          { code: "PREPARING", label: "Preparing", step: 2 },
+          { code: "WITH_COURIER", label: "With courier", step: 3 },
+          { code: "DELIVERED", label: "Delivered", step: 4 }
+        ]
+      }
+    };
   }
 
   async courierJob(correlationId, token) {
