@@ -1,10 +1,31 @@
 export class RoutingService {
-  constructor(store, evidence) {
+  constructor(store, evidence, commerce = null) {
     this.store = store;
     this.evidence = evidence;
+    this.commerce = commerce;
   }
 
   async route(event) {
+    if (event.event_name === "commerce.order.observed" && this.commerce) {
+      const workItem = await this.commerce.observe(event);
+      const routed = await this.store.updateEvent(event.event_id, {
+        state: "ROUTED",
+        routed_to: { type: "work_item", id: workItem.work_item_id }
+      });
+      await this.evidence.append({
+        organisation_id: event.organisation_id,
+        correlation_id: event.correlation_id,
+        causation_id: event.event_id,
+        event_id: event.event_id,
+        work_item_id: workItem.work_item_id,
+        actor: { type: "service", id: "k8-platform" },
+        action: "pulse.event.routed",
+        result: "observed",
+        output_refs: [workItem.work_item_id]
+      });
+      return { event: routed, workItem };
+    }
+
     if (event.event_name !== "briefing.schedule.due") {
       return { event, workItem: null };
     }

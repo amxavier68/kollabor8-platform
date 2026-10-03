@@ -73,6 +73,16 @@ export class MongoStore {
     return record;
   }
 
+  async getWorkItem(workItemId) {
+    return this.workItems.findOne({ work_item_id: workItemId }, { projection: { _id: 0 } });
+  }
+
+  async updateWorkItem(workItemId, patch) {
+    const updated_at = new Date().toISOString();
+    await this.workItems.updateOne({ work_item_id: workItemId }, { $set: { ...patch, updated_at } });
+    return this.getWorkItem(workItemId);
+  }
+
   async findRecentEvents(limit = 500) {
     return this.events
       .find({}, { projection: { _id: 0 } })

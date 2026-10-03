@@ -591,3 +591,96 @@ test("PTTM commissioning flow keeps one transaction across order update and dupl
     K8_WOOCOMMERCE_PROJECT_ID: "project_pttm_commerce"
   });
 });
+
+
+test("PTTM commerce workflow enforces ordered operational transitions with evidence", async () => {
+  await withServer(async ({ base }) => {
+    const secret = "woo-test-secret";
+    const order = {
+      id: 9301,
+      number: "9301",
+      status: "pending",
+      currency: "AUD",
+      total: "120.00",
+      customer_id: 801,
+      date_created_gmt: "2026-10-03T01:00:00Z",
+      date_modified_gmt: "2026-10-03T01:01:00Z",
+      billing: { first_name: "Workflow", last_name: "Test" },
+      line_items: [{ product_id: 501, name: "PTTM Workflow Test", quantity: 1, total: "120.00" }]
+    };
+    const raw = JSON.stringify(order);
+    const signature = crypto.createHmac("sha256", secret).update(raw).digest("base64");
+    const ingest = await fetch(`${base}/api/v1/ingress/woocommerce/orders`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-wc-webhook-signature": signature,
+        "x-wc-webhook-topic": "order.created",
+        "x-wc-webhook-resource": "order"
+      },
+      body: raw
+    });
+    assert.equal(ingest.status, 202);
+    const ingested = await ingest.json();
+    assert.equal(ingested.event.state, "ROUTED");
+    assert.equal(ingested.work_item.workflow_stage, "ORDER_RECEIVED");
+    assert.equal(ingested.work_item.next_action, "acknowledge-order");
+
+    const unsafe = await fetch(
+      `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9301")}/transitions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          stage: "PICKED_UP",
+          actor: { type: "human", id: "ops-test" }
+        })
+      }
+    );
+    assert.equal(unsafe.status, 409);
+
+    const stages = [
+      "ACKNOWLEDGED",
+      "PREPARING",
+      "READY_FOR_COURIER",
+      "COURIER_ASSIGNED",
+      "PICKED_UP",
+      "DELIVERED",
+      "COMPLETED"
+    ];
+    for (const stage of stages) {
+      const response = await fetch(
+        `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9301")}/transitions`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            stage,
+            actor: { type: "human", id: "ops-test" }
+          })
+        }
+      );
+      assert.equal(response.status, 200);
+    }
+
+    const transactionResponse = await fetch(
+      `${base}/api/v1/operations/transactions/${encodeURIComponent("woocommerce:order:9301")}`
+    );
+    const transaction = (await transactionResponse.json()).transaction;
+    assert.equal(transaction.counts.work_items, 1);
+    assert.equal(transaction.work_items[0].workflow_stage, "COMPLETED");
+    assert.equal(transaction.work_items[0].state, "COMPLETED");
+
+    const evidenceResponse = await fetch(
+      `${base}/api/v1/evidence?correlation_id=${encodeURIComponent("woocommerce:order:9301")}`
+    );
+    const evidence = (await evidenceResponse.json()).evidence;
+    const transitions = evidence.filter((record) => record.action === "commerce.workflow.transitioned");
+    assert.equal(transitions.length, 7);
+  }, {
+    K8_WOOCOMMERCE_WEBHOOK_SECRET: "woo-test-secret",
+    K8_WOOCOMMERCE_CLIENT_NAME: "Petals to the Metal",
+    K8_WOOCOMMERCE_CLIENT_ID: "client_pttm",
+    K8_WOOCOMMERCE_PROJECT_ID: "project_pttm_commerce"
+  });
+});

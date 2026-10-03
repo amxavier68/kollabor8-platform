@@ -65,6 +65,19 @@ export class MemoryStore {
     return structuredClone(record);
   }
 
+  async getWorkItem(workItemId) {
+    const record = this.workItems.get(workItemId);
+    return record ? structuredClone(record) : null;
+  }
+
+  async updateWorkItem(workItemId, patch) {
+    const current = this.workItems.get(workItemId);
+    if (!current) return null;
+    const next = { ...current, ...structuredClone(patch), updated_at: new Date().toISOString() };
+    this.workItems.set(workItemId, next);
+    return structuredClone(next);
+  }
+
   async findRecentEvents(limit = 500) {
     const records = [...this.events.values()]
       .sort((a, b) => String(b.received_at).localeCompare(String(a.received_at)))

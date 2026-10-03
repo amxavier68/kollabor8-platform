@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - "foundation/**"
+      - "feature/**"
 
 permissions:
   contents: read
