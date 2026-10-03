@@ -97,6 +97,21 @@ export class WooCommerceIngressService {
         shipping_method: Array.isArray(order.shipping_lines)
           ? order.shipping_lines.map((line) => line.method_title ?? line.method_id).filter(Boolean)
           : [],
+        delivery: (() => {
+          const shipping = order.shipping ?? {};
+          const billing = order.billing ?? {};
+          const source = Object.values(shipping).some(Boolean) ? shipping : billing;
+          return {
+            recipient_name: [source.first_name, source.last_name].map((v) => text(v)).filter(Boolean).join(" ") || customerName(order),
+            company: text(source.company) || null,
+            address_1: text(source.address_1) || null,
+            address_2: text(source.address_2) || null,
+            city: text(source.city) || null,
+            state: text(source.state) || null,
+            postcode: text(source.postcode) || null,
+            country: text(source.country) || null
+          };
+        })(),
         line_items: Array.isArray(order.line_items)
           ? order.line_items.map((item) => ({
               product_id: item.product_id ?? null,
