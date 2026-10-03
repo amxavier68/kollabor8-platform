@@ -20,8 +20,20 @@ export class OperationsControlService {
       }
     }
 
-    let items = [...latestByCorrelation.values()].map((event) => {
+    const latestEvents = [...latestByCorrelation.values()];
+    const workByCorrelation = new Map(
+      await Promise.all(
+        latestEvents.map(async (event) => {
+          const workItems = await this.store.findWorkItemsByCorrelation(event.correlation_id);
+          const commerce = [...workItems].reverse().find((item) => item.workflow_type === "commerce_order") ?? null;
+          return [event.correlation_id, commerce];
+        })
+      )
+    );
+
+    let items = latestEvents.map((event) => {
       const service = event.service_context ?? {};
+      const commerce = workByCorrelation.get(event.correlation_id) ?? null;
       const internal = !event.client_id && ["org_kollabor8", "org_k8"].includes(event.organisation_id);
       const displayName =
         service.display_name ??
@@ -43,9 +55,13 @@ export class OperationsControlService {
         sla_due_at: service.sla_due_at ?? null,
         current_state: event.state ?? null,
         workflow_status: service.workflow_status ?? null,
+        workflow_stage: commerce?.workflow_stage ?? null,
+        workflow_work_item_id: commerce?.work_item_id ?? null,
+        next_action: commerce?.next_action ?? null,
+        workflow_state: commerce?.state ?? null,
         latest_event_name: event.event_name,
         latest_event_id: event.event_id,
-        last_activity_at: event.updated_at ?? event.received_at ?? event.occurred_at,
+        last_activity_at: commerce?.updated_at ?? event.updated_at ?? event.received_at ?? event.occurred_at,
         organisation_id: event.organisation_id,
         project_id: event.project_id ?? null
       };
