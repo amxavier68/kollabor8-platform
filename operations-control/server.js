@@ -7,6 +7,7 @@ const port = Number(process.env.PORT || 10000);
 const platformUrl = process.env.K8_PLATFORM_URL || "https://k8-platform-foundation-staging.onrender.com";
 const platformKey = process.env.K8_API_KEY || "";
 const operatorPassword = process.env.K8_OPERATIONS_PASSWORD || "";
+const courierUrl = process.env.K8_COURIER_URL || "https://k8-courier-staging.onrender.com";
 const secureCookies = process.env.NODE_ENV === "production";
 const sessions = new Map();
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
@@ -157,6 +158,10 @@ app.post("/api/transactions/:correlationId/commerce-transition", requireOperator
       `/api/v1/commerce/transactions/${encodeURIComponent(req.params.correlationId)}/transitions`,
       { method: "POST", body: JSON.stringify(payload) }
     );
+    if (result.ok && result.body?.courier_access_token) {
+      result.body.courier_job_url =
+        `${courierUrl}/job/${encodeURIComponent(req.params.correlationId)}?token=${encodeURIComponent(result.body.courier_access_token)}`;
+    }
     res.status(result.status).json(result.body);
   } catch (error) {
     res.status(502).json({ error: "platform_unavailable", message: error.message });
@@ -328,7 +333,7 @@ async function transitionCommerce(stage,extra={}){
 if(!currentId)return;clearError();const isException=stage==="EXCEPTION";let reason=null;if(isException){reason=prompt("Reason for exception / customer impact:");if(!reason)return}
 const buttons=[...q("workflow-actions").querySelectorAll("button")];buttons.forEach(b=>b.disabled=true);
 try{const r=await fetch("/api/transactions/"+encodeURIComponent(currentId)+"/commerce-transition",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({stage,reason,...extra})});const b=await r.json();if(!r.ok){showError(b.error||b.message||"Commerce transition failed");return}
-q("workflow-notice").textContent=(b.deduplicated?"Already recorded: ":"Recorded: ")+(stageLabels[b.work_item?.workflow_stage]||b.work_item?.workflow_stage||stage);q("workflow-notice").classList.remove("hidden");await loadQueue();await openTransaction(currentId)
+if(b.courier_job_url){q("workflow-notice").innerHTML='Courier assigned. <strong>Secure courier link:</strong><br><input id="courier-link" readonly value="'+esc(b.courier_job_url)+'" style="margin-top:8px"><button id="copy-courier-link" class="button secondary" style="margin-top:8px">Copy courier link</button>';q("workflow-notice").classList.remove("hidden");setTimeout(()=>{const btn=q("copy-courier-link");if(btn)btn.onclick=async()=>{await navigator.clipboard.writeText(q("courier-link").value);btn.textContent="Copied"}} ,0)}else{q("workflow-notice").textContent=(b.deduplicated?"Already recorded: ":"Recorded: ")+(stageLabels[b.work_item?.workflow_stage]||b.work_item?.workflow_stage||stage);q("workflow-notice").classList.remove("hidden")}await loadQueue();await openTransaction(currentId)
 }finally{buttons.forEach(b=>b.disabled=false)}
 }
 q("refresh").onclick=loadQueue;
