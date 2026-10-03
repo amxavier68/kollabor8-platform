@@ -70,7 +70,7 @@ function setSession(res, correlationId, token) {
     expiresAt: Date.now() + SESSION_TTL_MS
   });
   const secure = secureCookies ? "; Secure" : "";
-  res.setHeader("Set-Cookie", `k8courier=${sid}; Path=/job/${encodeURIComponent(correlationId)}; HttpOnly; SameSite=Lax; Max-Age=86400${secure}`);
+  res.setHeader("Set-Cookie", `k8courier=${sid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400${secure}`);
 }
 
 function fmtDestination(destination = {}) {
