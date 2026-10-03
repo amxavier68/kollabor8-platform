@@ -250,6 +250,18 @@ export function createApp(store, env = process.env) {
     } catch (error) { next(error); }
   });
 
+  app.get("/api/v1/customer/orders/:orderId/status", async (req, res, next) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      const auth = String(req.get("authorization") ?? "");
+      const orderKey = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+      const result = await commerce.customerStatus(req.params.orderId, orderKey);
+      if (result.type === "not_found") return res.status(404).json({ error: "order_not_found" });
+      if (result.type === "unauthorised") return res.status(401).json({ error: "invalid_order_key" });
+      return res.json({ status: result.status });
+    } catch (error) { next(error); }
+  });
+
   function courierToken(req) {
     const auth = String(req.get("authorization") ?? "");
     return auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
