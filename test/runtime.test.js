@@ -752,3 +752,120 @@ test("PTTM commerce workflow enforces ordered operational transitions with evide
     K8_WOOCOMMERCE_PROJECT_ID: "project_pttm_commerce"
   });
 });
+
+
+test("PTTM courier mobile token exposes only assigned job and drives accept pickup deliver", async () => {
+  await withServer(async ({ base }) => {
+    const secret = "woo-test-secret";
+    const order = {
+      id: 9401,
+      number: "9401",
+      status: "pending",
+      currency: "AUD",
+      total: "145.00",
+      customer_id: 901,
+      date_created_gmt: "2026-10-03T02:00:00Z",
+      date_modified_gmt: "2026-10-03T02:01:00Z",
+      billing: { first_name: "Delivery", last_name: "Customer" },
+      shipping: {
+        first_name: "Delivery",
+        last_name: "Customer",
+        address_1: "10 Test Street",
+        city: "Beaudesert",
+        state: "QLD",
+        postcode: "4285",
+        country: "AU"
+      },
+      line_items: [{ product_id: 601, name: "Courier Test Flowers", quantity: 1, total: "145.00" }]
+    };
+
+    const raw = JSON.stringify(order);
+    const signature = crypto.createHmac("sha256", secret).update(raw).digest("base64");
+    const ingest = await fetch(`${base}/api/v1/ingress/woocommerce/orders`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-wc-webhook-signature": signature,
+        "x-wc-webhook-topic": "order.created",
+        "x-wc-webhook-resource": "order"
+      },
+      body: raw
+    });
+    assert.equal(ingest.status, 202);
+
+    for (const stage of ["ACKNOWLEDGED", "PREPARING", "READY_FOR_COURIER"]) {
+      const response = await fetch(
+        `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9401")}/transitions`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            stage,
+            actor: { type: "human", id: "ops-test" }
+          })
+        }
+      );
+      assert.equal(response.status, 200);
+    }
+
+    const assignment = await fetch(
+      `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9401")}/transitions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          stage: "COURIER_ASSIGNED",
+          courier: { id: "courier-mobile-1", name: "Mobile Courier" },
+          actor: { type: "human", id: "ops-test" }
+        })
+      }
+    );
+    assert.equal(assignment.status, 200);
+    const assigned = await assignment.json();
+    assert.ok(assigned.courier_access_token);
+    assert.equal(assigned.work_item.courier.name, "Mobile Courier");
+
+    const noToken = await fetch(
+      `${base}/api/v1/courier/jobs/${encodeURIComponent("woocommerce:order:9401")}`
+    );
+    assert.equal(noToken.status, 401);
+
+    const auth = { authorization: `Bearer ${assigned.courier_access_token}` };
+    const jobResponse = await fetch(
+      `${base}/api/v1/courier/jobs/${encodeURIComponent("woocommerce:order:9401")}`,
+      { headers: auth }
+    );
+    assert.equal(jobResponse.status, 200);
+    const job = (await jobResponse.json()).job;
+    assert.equal(job.order_reference, "Order #9401");
+    assert.equal(job.courier.id, "courier-mobile-1");
+    assert.equal(job.delivery_destination.address_1, "10 Test Street");
+    assert.equal(job.delivery_destination.postcode, "4285");
+    assert.equal(job.workflow_stage, "COURIER_ASSIGNED");
+    assert.equal(job.courier_access_hash, undefined);
+
+    for (const action of ["accept", "pickup", "deliver"]) {
+      const response = await fetch(
+        `${base}/api/v1/courier/jobs/${encodeURIComponent("woocommerce:order:9401")}/${action}`,
+        { method: "POST", headers: auth }
+      );
+      assert.equal(response.status, 200);
+    }
+
+    const finalJobResponse = await fetch(
+      `${base}/api/v1/courier/jobs/${encodeURIComponent("woocommerce:order:9401")}`,
+      { headers: auth }
+    );
+    const finalJob = (await finalJobResponse.json()).job;
+    assert.equal(finalJob.workflow_stage, "DELIVERED");
+    assert.equal(finalJob.dispatch_status, "DELIVERED");
+    assert.ok(finalJob.courier_accepted_at);
+    assert.ok(finalJob.picked_up_at);
+    assert.ok(finalJob.delivered_at);
+  }, {
+    K8_WOOCOMMERCE_WEBHOOK_SECRET: "woo-test-secret",
+    K8_WOOCOMMERCE_CLIENT_NAME: "Petals to the Metal",
+    K8_WOOCOMMERCE_CLIENT_ID: "client_pttm",
+    K8_WOOCOMMERCE_PROJECT_ID: "project_pttm_commerce"
+  });
+});
