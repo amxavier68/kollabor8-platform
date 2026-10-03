@@ -869,3 +869,138 @@ test("PTTM courier mobile token exposes only assigned job and drives accept pick
     K8_WOOCOMMERCE_PROJECT_ID: "project_pttm_commerce"
   });
 });
+
+
+test("PTTM customer tracking exposes only safe milestones using Woo order key", async () => {
+  await withServer(async ({ base }) => {
+    const secret = "woo-test-secret";
+    const order = {
+      id: 9501,
+      number: "9501",
+      order_key: "wc_order_customer_tracking_9501",
+      status: "pending",
+      currency: "AUD",
+      total: "155.00",
+      customer_id: 1001,
+      date_created_gmt: "2026-10-03T03:00:00Z",
+      date_modified_gmt: "2026-10-03T03:01:00Z",
+      billing: { first_name: "Tracking", last_name: "Customer" },
+      shipping: {
+        first_name: "Tracking",
+        last_name: "Customer",
+        address_1: "20 Private Street",
+        city: "Beaudesert",
+        state: "QLD",
+        postcode: "4285",
+        country: "AU"
+      },
+      line_items: [{ product_id: 701, name: "Customer Tracking Flowers", quantity: 1, total: "155.00" }]
+    };
+
+    const raw = JSON.stringify(order);
+    const signature = crypto.createHmac("sha256", secret).update(raw).digest("base64");
+    const ingest = await fetch(`${base}/api/v1/ingress/woocommerce/orders`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-wc-webhook-signature": signature,
+        "x-wc-webhook-topic": "order.created",
+        "x-wc-webhook-resource": "order"
+      },
+      body: raw
+    });
+    assert.equal(ingest.status, 202);
+
+    const endpoint = `${base}/api/v1/customer/orders/9501/status`;
+    assert.equal((await fetch(endpoint)).status, 401);
+    assert.equal((await fetch(endpoint, {
+      headers: { authorization: "Bearer wrong-order-key" }
+    })).status, 401);
+
+    const auth = { authorization: "Bearer wc_order_customer_tracking_9501" };
+    let response = await fetch(endpoint, { headers: auth });
+    assert.equal(response.status, 200);
+    let customer = (await response.json()).status;
+    assert.equal(customer.order_reference, "Order #9501");
+    assert.equal(customer.milestone.code, "ORDER_RECEIVED");
+    assert.equal(customer.milestone.step, 1);
+    assert.equal(customer.delivery_destination, undefined);
+    assert.equal(customer.courier, undefined);
+    assert.equal(customer.workflow_stage, undefined);
+    assert.equal(customer.evidence, undefined);
+
+    for (const stage of ["ACKNOWLEDGED", "PREPARING"]) {
+      const transition = await fetch(
+        `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9501")}/transitions`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ stage, actor: { type: "human", id: "ops-test" } })
+        }
+      );
+      assert.equal(transition.status, 200);
+    }
+
+    response = await fetch(endpoint, { headers: auth });
+    customer = (await response.json()).status;
+    assert.equal(customer.milestone.code, "PREPARING");
+    assert.equal(customer.milestone.step, 2);
+
+    for (const stage of ["READY_FOR_COURIER"]) {
+      const transition = await fetch(
+        `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9501")}/transitions`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ stage, actor: { type: "human", id: "ops-test" } })
+        }
+      );
+      assert.equal(transition.status, 200);
+    }
+
+    const assignment = await fetch(
+      `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9501")}/transitions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          stage: "COURIER_ASSIGNED",
+          courier: { id: "customer-track-courier", name: "Private Courier" },
+          actor: { type: "human", id: "ops-test" }
+        })
+      }
+    );
+    assert.equal(assignment.status, 200);
+    const token = (await assignment.json()).courier_access_token;
+
+    for (const action of ["accept", "pickup"]) {
+      const courierResponse = await fetch(
+        `${base}/api/v1/courier/jobs/${encodeURIComponent("woocommerce:order:9501")}/${action}`,
+        { method: "POST", headers: { authorization: `Bearer ${token}` } }
+      );
+      assert.equal(courierResponse.status, 200);
+    }
+
+    response = await fetch(endpoint, { headers: auth });
+    customer = (await response.json()).status;
+    assert.equal(customer.milestone.code, "WITH_COURIER");
+    assert.equal(customer.milestone.step, 3);
+
+    const delivered = await fetch(
+      `${base}/api/v1/courier/jobs/${encodeURIComponent("woocommerce:order:9501")}/deliver`,
+      { method: "POST", headers: { authorization: `Bearer ${token}` } }
+    );
+    assert.equal(delivered.status, 200);
+
+    response = await fetch(endpoint, { headers: auth });
+    customer = (await response.json()).status;
+    assert.equal(customer.milestone.code, "DELIVERED");
+    assert.equal(customer.milestone.step, 4);
+    assert.ok(customer.delivered_at);
+  }, {
+    K8_WOOCOMMERCE_WEBHOOK_SECRET: "woo-test-secret",
+    K8_WOOCOMMERCE_CLIENT_NAME: "Petals to the Metal",
+    K8_WOOCOMMERCE_CLIENT_ID: "client_pttm",
+    K8_WOOCOMMERCE_PROJECT_ID: "project_pttm_commerce"
+  });
+});
