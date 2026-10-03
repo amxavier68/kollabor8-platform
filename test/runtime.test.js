@@ -650,13 +650,68 @@ test("PTTM commerce workflow enforces ordered operational transitions with evide
     const stages = [
       "ACKNOWLEDGED",
       "PREPARING",
-      "READY_FOR_COURIER",
-      "COURIER_ASSIGNED",
-      "PICKED_UP",
-      "DELIVERED",
-      "COMPLETED"
+      "READY_FOR_COURIER"
     ];
     for (const stage of stages) {
+      const response = await fetch(
+        `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9301")}/transitions`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            stage,
+            actor: { type: "human", id: "ops-test" }
+          })
+        }
+      );
+      assert.equal(response.status, 200);
+    }
+
+    const missingCourier = await fetch(
+      `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9301")}/transitions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          stage: "COURIER_ASSIGNED",
+          actor: { type: "human", id: "ops-test" }
+        })
+      }
+    );
+    assert.equal(missingCourier.status, 400);
+
+    const assignment = await fetch(
+      `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9301")}/transitions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          stage: "COURIER_ASSIGNED",
+          courier: { id: "courier-test-1", name: "Courier Test" },
+          actor: { type: "human", id: "ops-test" }
+        })
+      }
+    );
+    assert.equal(assignment.status, 200);
+    const assignedBody = await assignment.json();
+    assert.equal(assignedBody.work_item.dispatch_status, "AWAITING_ACCEPTANCE");
+    assert.equal(assignedBody.work_item.courier.name, "Courier Test");
+    assert.ok(assignedBody.work_item.courier_assigned_at);
+
+    const prematurePickup = await fetch(
+      `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9301")}/transitions`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          stage: "PICKED_UP",
+          actor: { type: "human", id: "ops-test" }
+        })
+      }
+    );
+    assert.equal(prematurePickup.status, 409);
+
+    for (const stage of ["COURIER_ACCEPTED", "PICKED_UP", "DELIVERED", "COMPLETED"]) {
       const response = await fetch(
         `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9301")}/transitions`,
         {
@@ -678,13 +733,18 @@ test("PTTM commerce workflow enforces ordered operational transitions with evide
     assert.equal(transaction.counts.work_items, 1);
     assert.equal(transaction.work_items[0].workflow_stage, "COMPLETED");
     assert.equal(transaction.work_items[0].state, "COMPLETED");
+    assert.equal(transaction.work_items[0].dispatch_status, "DELIVERED");
+    assert.equal(transaction.work_items[0].courier.id, "courier-test-1");
+    assert.ok(transaction.work_items[0].courier_accepted_at);
+    assert.ok(transaction.work_items[0].picked_up_at);
+    assert.ok(transaction.work_items[0].delivered_at);
 
     const evidenceResponse = await fetch(
       `${base}/api/v1/evidence?correlation_id=${encodeURIComponent("woocommerce:order:9301")}`
     );
     const evidence = (await evidenceResponse.json()).evidence;
     const transitions = evidence.filter((record) => record.action === "commerce.workflow.transitioned");
-    assert.equal(transitions.length, 7);
+    assert.equal(transitions.length, 8);
   }, {
     K8_WOOCOMMERCE_WEBHOOK_SECRET: "woo-test-secret",
     K8_WOOCOMMERCE_CLIENT_NAME: "Petals to the Metal",
