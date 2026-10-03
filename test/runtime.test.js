@@ -483,3 +483,13 @@ test("WooCommerce webhook rejects invalid signature", async () => {
     assert.equal((await response.json()).error, "invalid_woocommerce_signature");
   }, { K8_WOOCOMMERCE_WEBHOOK_SECRET: "woo-test-secret" });
 });
+
+
+test("WooCommerce activation ping is accepted without signature", async () => {
+  await withServer(async ({ base }) => {
+    const response = await fetch(`${base}/api/v1/ingress/woocommerce/orders`, {
+      method: "POST"
+    });
+    assert.equal(response.status, 204);
+  }, { K8_WOOCOMMERCE_WEBHOOK_SECRET: "woo-test-secret" });
+});
