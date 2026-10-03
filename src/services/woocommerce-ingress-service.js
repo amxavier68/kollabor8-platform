@@ -90,6 +90,9 @@ export class WooCommerceIngressService {
       payload: {
         order_id: order.id,
         order_number: orderNumber,
+        order_key_hash: order.order_key
+          ? crypto.createHash("sha256").update(String(order.order_key)).digest("hex")
+          : null,
         status,
         currency: order.currency ?? null,
         total: order.total ?? null,
