@@ -22,7 +22,7 @@ export class OperationsControlService {
 
     let items = [...latestByCorrelation.values()].map((event) => {
       const service = event.service_context ?? {};
-      const internal = !event.client_id && event.organisation_id === "org_kollabor8";
+      const internal = !event.client_id && ["org_kollabor8", "org_k8"].includes(event.organisation_id);
       const displayName =
         service.display_name ??
         (event.client_id ? event.client_id : internal ? "Kollabor8 (internal)" : "Unidentified party");
