@@ -626,6 +626,14 @@ test("PTTM commerce workflow enforces ordered operational transitions with evide
     assert.equal(ingested.work_item.workflow_stage, "ORDER_RECEIVED");
     assert.equal(ingested.work_item.next_action, "acknowledge-order");
 
+    const queueProjectionResponse = await fetch(`${base}/api/v1/operations/transactions?search=9301`);
+    assert.equal(queueProjectionResponse.status, 200);
+    const queueProjection = await queueProjectionResponse.json();
+    assert.equal(queueProjection.queue.count, 1);
+    assert.equal(queueProjection.queue.items[0].workflow_stage, "ORDER_RECEIVED");
+    assert.equal(queueProjection.queue.items[0].next_action, "acknowledge-order");
+    assert.equal(queueProjection.queue.items[0].workflow_state, "OPEN");
+
     const unsafe = await fetch(
       `${base}/api/v1/commerce/transactions/${encodeURIComponent("woocommerce:order:9301")}/transitions`,
       {
