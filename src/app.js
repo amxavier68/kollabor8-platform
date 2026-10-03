@@ -70,20 +70,33 @@ export function createApp(store, env = process.env) {
   app.post("/api/v1/ingress/woocommerce/orders", async (req, res, next) => {
     try {
       const suppliedSignature = req.get("x-wc-webhook-signature");
+      const topic = req.get("x-wc-webhook-topic");
+      const rawLength = req.rawBody?.length ?? 0;
+      const emptyActivationPing = !topic && !suppliedSignature && rawLength === 0;
+
+      if (emptyActivationPing) {
+        console.log(JSON.stringify({
+          level: "info",
+          message: "woocommerce activation ping accepted"
+        }));
+        return res.status(204).send();
+      }
+
       const verified = wooIngress.verify(req.rawBody, suppliedSignature);
       console.log(JSON.stringify({
         level: "info",
         message: "woocommerce webhook verification",
-        topic: req.get("x-wc-webhook-topic") ?? null,
+        topic: topic ?? null,
         signature_present: Boolean(suppliedSignature),
         signature_length: suppliedSignature ? String(suppliedSignature).length : 0,
-        raw_body_length: req.rawBody?.length ?? 0,
+        raw_body_length: rawLength,
         verified
       }));
+
       const result = await wooIngress.ingestWebhook({
         rawBody: req.rawBody,
         signature: suppliedSignature,
-        topic: req.get("x-wc-webhook-topic"),
+        topic,
         resourceId: req.get("x-wc-webhook-resource"),
         order: req.body
       });
