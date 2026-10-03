@@ -150,6 +150,7 @@ app.post("/api/transactions/:correlationId/commerce-transition", requireOperator
       stage: req.body.stage,
       reason: req.body.reason || null,
       owner: req.body.owner || null,
+      courier: req.body.courier || null,
       actor: { type: "human", id: "operations-console" }
     };
     const result = await platform(
@@ -207,7 +208,7 @@ header{background:var(--navy);color:#fff;padding:24px 26px;border-radius:18px;di
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}.card{padding:16px}.label{font-size:14px;color:var(--muted)}.metric{font-size:28px;font-weight:850;margin-top:4px}.opsgrid{display:grid;grid-template-columns:minmax(720px,1.45fr) minmax(400px,.8fr);gap:16px}.queuecard{padding:0;overflow:hidden}.queuehead{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.queuehead h2,.detail h2{margin:0;font-size:20px}.small{font-size:13px;color:var(--muted)}
 .tablewrap{overflow:auto;max-height:68vh}table{width:100%;border-collapse:collapse;min-width:900px}th{position:sticky;top:0;background:#f8fafc;text-align:left;padding:11px 12px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;border-bottom:1px solid var(--line);z-index:1}td{padding:13px 12px;border-bottom:1px solid #eef2f7;vertical-align:top}tr[data-id]{cursor:pointer}tr[data-id]:hover{background:#f8fafc}.who{font-weight:800}.meta{font-size:13px;color:var(--muted);margin-top:3px}.ref{font-family:ui-monospace,SFMono-Regular,monospace;font-size:13px}.pill{display:inline-flex;padding:5px 8px;border-radius:999px;font-size:12px;font-weight:800;background:#e2e8f0;color:#334155}.pill.good{background:#dcfce7;color:#166534}.pill.warn{background:#fef3c7;color:#92400e}.pill.bad{background:#fee2e2;color:#991b1b}.pill.blue{background:#e0f2fe;color:#075985}
 .detail{min-height:420px}.empty{display:grid;place-items:center;min-height:420px;text-align:center;color:#64748b;padding:30px}.identity{padding:14px;background:#f8fafc;border:1px solid var(--line);border-radius:12px;margin:14px 0}.identity .name{font-size:21px;font-weight:850}.facts{display:grid;grid-template-columns:1fr 1fr;gap:10px}.fact{padding:10px;background:#f8fafc;border-radius:10px}.timeline{display:flex;flex-direction:column;gap:9px;margin-top:14px;max-height:340px;overflow:auto}.item{border-left:4px solid #818cf8;background:#f8fafc;border-radius:0 10px 10px 0;padding:10px 12px}.itemtop{display:flex;justify-content:space-between;gap:10px}.type{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#6366f1;font-weight:850}.title{font-weight:800;margin-top:3px}.time{font-size:12px;color:var(--muted);white-space:nowrap}.sectiontitle{font-size:16px;font-weight:850;margin:18px 0 6px}label{font-size:13px;font-weight:800;display:block;margin:10px 0 5px}textarea{min-height:70px;resize:vertical}.primary{width:100%;margin-top:10px}.notice{margin-top:10px;padding:10px;border-radius:9px;background:#ecfeff;color:#155e75}.error{margin-top:12px;padding:11px;border-radius:10px;background:#fee2e2;color:#991b1b}.hidden{display:none}
-.workflow{margin:14px 0;padding:14px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc}.workflowtop{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.stage{font-size:22px;font-weight:850;margin-top:3px}.nextaction{margin-top:8px;color:#334155}.stagebar{display:flex;gap:4px;margin-top:12px;overflow:auto;padding-bottom:3px}.stagebar span{flex:1;min-width:72px;height:8px;border-radius:99px;background:#e2e8f0}.stagebar span.done{background:#86efac}.stagebar span.current{background:#818cf8}.stagehint{display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-top:5px}.workflowactions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}.workflowactions button{border:0;border-radius:9px;padding:10px 12px;font:inherit;font-weight:800;cursor:pointer}.workflowactions .advance{background:#4338ca;color:#fff}.workflowactions .exception{background:#fee2e2;color:#991b1b}.workflowactions button:disabled{opacity:.55;cursor:not-allowed}.attention{font-weight:850}.attention.urgent{color:#b91c1c}.attention.high{color:#a16207}.attention.normal{color:#334155}.queuehint{font-size:12px;color:#64748b;margin-top:3px}.technical{font-size:12px;color:#64748b;font-family:ui-monospace,SFMono-Regular,monospace}
+.workflow{margin:14px 0;padding:14px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc}.workflowtop{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.stage{font-size:22px;font-weight:850;margin-top:3px}.nextaction{margin-top:8px;color:#334155}.stagebar{display:flex;gap:4px;margin-top:12px;overflow:auto;padding-bottom:3px}.stagebar span{flex:1;min-width:72px;height:8px;border-radius:99px;background:#e2e8f0}.stagebar span.done{background:#86efac}.stagebar span.current{background:#818cf8}.stagehint{display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-top:5px}.workflowactions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}.workflowactions button{border:0;border-radius:9px;padding:10px 12px;font:inherit;font-weight:800;cursor:pointer}.workflowactions .advance{background:#4338ca;color:#fff}.workflowactions .exception{background:#fee2e2;color:#991b1b}.workflowactions button:disabled{opacity:.55;cursor:not-allowed}.dispatch{margin:14px 0;padding:14px;border:1px solid #bae6fd;background:#f0f9ff;border-radius:12px}.dispatchgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.dispatchname{font-size:18px;font-weight:850}.dispatchmeta{font-size:13px;color:#475569;margin-top:3px}.dispatchform{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:12px}.dispatchform input{margin:0}.dispatchform button{margin:0}@media(max-width:760px){.dispatchform,.dispatchgrid{grid-template-columns:1fr}}.attention{font-weight:850}.attention.urgent{color:#b91c1c}.attention.high{color:#a16207}.attention.normal{color:#334155}.queuehint{font-size:12px;color:#64748b;margin-top:3px}.technical{font-size:12px;color:#64748b;font-family:ui-monospace,SFMono-Regular,monospace}
 @media(max-width:1150px){.opsgrid{grid-template-columns:1fr}.tablewrap{max-height:none}.detail{min-height:auto}.empty{min-height:220px}}@media(max-width:760px){.toolbar{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}header{align-items:flex-start;flex-direction:column}.wrap{padding:12px}}@media(max-width:480px){.kpis{grid-template-columns:1fr}.facts{grid-template-columns:1fr}}
 </style></head><body><div class="wrap">
 <header><div><div class="eyebrow">K8 Operations Control</div><h1>Service Operations Centre</h1><div class="sub">See who Kollabor8 is supporting, what they asked for, where the transaction is now, and what needs intervention. Technical IDs are available, but they are no longer the starting point.</div></div><form method="post" action="/logout"><button class="logout">Sign out</button></form></header>
@@ -245,6 +246,15 @@ header{background:var(--navy);color:#fff;padding:24px 26px;border-radius:18px;di
 <div id="workflow-actions" class="workflowactions"></div>
 <div id="workflow-notice" class="notice hidden"></div>
 </div>
+<div id="courier-dispatch" class="dispatch hidden">
+<div class="label">Courier dispatch</div>
+<div id="dispatch-current" style="margin-top:5px"></div>
+<div id="dispatch-form" class="dispatchform hidden">
+<input id="courier-id" placeholder="Courier ID / short name" aria-label="Courier ID">
+<input id="courier-name" placeholder="Courier display name" aria-label="Courier name">
+<button id="assign-courier" class="button">Assign courier</button>
+</div>
+</div>
 <div class="facts">
 <div class="fact"><div class="label">K8 reference</div><div id="detail-corr" class="ref"></div></div>
 <div class="fact"><div class="label">Open work</div><div id="detail-work" style="font-weight:800"></div></div>
@@ -262,10 +272,10 @@ let queueItems=[],currentId="",currentItem=null;
 const q=id=>document.getElementById(id);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const badStates=["BLOCKED","SAFE_STOP","FAILED_RECOVERABLE","FAILED_MANUAL","DEAD_LETTER"];
-const commerceStages=["ORDER_RECEIVED","ACKNOWLEDGED","PREPARING","READY_FOR_COURIER","COURIER_ASSIGNED","PICKED_UP","DELIVERED","COMPLETED"];
-const stageLabels={ORDER_RECEIVED:"Order received",ACKNOWLEDGED:"Acknowledged",PREPARING:"Preparing",READY_FOR_COURIER:"Ready for courier",COURIER_ASSIGNED:"Courier assigned",PICKED_UP:"Picked up",DELIVERED:"Delivered",COMPLETED:"Completed",EXCEPTION:"Exception",CANCELLED:"Cancelled",REFUNDED:"Refunded"};
-const nextStage={ORDER_RECEIVED:"ACKNOWLEDGED",ACKNOWLEDGED:"PREPARING",PREPARING:"READY_FOR_COURIER",READY_FOR_COURIER:"COURIER_ASSIGNED",COURIER_ASSIGNED:"PICKED_UP",PICKED_UP:"DELIVERED",DELIVERED:"COMPLETED"};
-const nextLabels={ACKNOWLEDGED:"Acknowledge order",PREPARING:"Start preparation",READY_FOR_COURIER:"Ready for courier",COURIER_ASSIGNED:"Assign courier",PICKED_UP:"Confirm pickup",DELIVERED:"Confirm delivery",COMPLETED:"Complete order"};
+const commerceStages=["ORDER_RECEIVED","ACKNOWLEDGED","PREPARING","READY_FOR_COURIER","COURIER_ASSIGNED","COURIER_ACCEPTED","PICKED_UP","DELIVERED","COMPLETED"];
+const stageLabels={ORDER_RECEIVED:"Order received",ACKNOWLEDGED:"Acknowledged",PREPARING:"Preparing",READY_FOR_COURIER:"Ready for courier",COURIER_ASSIGNED:"Courier assigned",COURIER_ACCEPTED:"Courier accepted",PICKED_UP:"Picked up",DELIVERED:"Delivered",COMPLETED:"Completed",EXCEPTION:"Exception",CANCELLED:"Cancelled",REFUNDED:"Refunded"};
+const nextStage={ORDER_RECEIVED:"ACKNOWLEDGED",ACKNOWLEDGED:"PREPARING",PREPARING:"READY_FOR_COURIER",READY_FOR_COURIER:"COURIER_ASSIGNED",COURIER_ASSIGNED:"COURIER_ACCEPTED",COURIER_ACCEPTED:"PICKED_UP",PICKED_UP:"DELIVERED",DELIVERED:"COMPLETED"};
+const nextLabels={ACKNOWLEDGED:"Acknowledge order",PREPARING:"Start preparation",READY_FOR_COURIER:"Ready for courier",COURIER_ASSIGNED:"Assign courier",COURIER_ACCEPTED:"Record courier acceptance",PICKED_UP:"Confirm pickup",DELIVERED:"Confirm delivery",COMPLETED:"Complete order"};
 function showError(m){q("error").textContent=m;q("error").classList.remove("hidden")} function clearError(){q("error").classList.add("hidden")}
 function fmt(v){if(!v)return"—";const d=new Date(v);return isNaN(d.getTime())?v:d.toLocaleString()}
 function age(v){if(!v)return"—";const n=Date.now()-new Date(v).getTime();if(n<60000)return"<1m";if(n<3600000)return Math.floor(n/60000)+"m";if(n<86400000)return Math.floor(n/3600000)+"h";return Math.floor(n/86400000)+"d"}
@@ -293,7 +303,7 @@ const commerce=[...(tx.work_items||[])].reverse().find(w=>w.workflow_type==="com
 q("detail-request").textContent=i.request_type||tx.events.at(-1)?.event_name||"Transaction";q("detail-ref").textContent=i.request_reference||"";
 q("detail-state").className=pill(commerce?.state||tx.current_state);q("detail-state").textContent=commerce?.workflow_stage?stageLabels[commerce.workflow_stage]||commerce.workflow_stage:i.workflow_status||tx.current_state||"UNKNOWN";
 q("detail-who").textContent=i.display_name||"Unidentified party";q("detail-party").textContent=(i.client_name?i.client_name+" · ":"")+(i.party_type||"unknown")+(i.channel?" · "+i.channel:"");q("detail-summary").textContent=i.summary||"";q("detail-corr").textContent=tx.correlation_id;q("detail-work").textContent=tx.open_work_items;q("detail-evidence").textContent=tx.counts.evidence;q("detail-approvals").textContent=tx.counts.approvals;
-renderWorkflow(commerce);
+renderWorkflow(commerce);renderDispatch(commerce);
 q("timeline").innerHTML=tx.timeline.map(x=>{const r=x.record||{},label=x.type==="event"?r.event_name:x.type==="work_item"?r.title:x.type==="approval"?"Approval "+r.decision:r.action,status=r.workflow_stage||r.state||r.result||"";return '<div class="item"><div class="itemtop"><div><div class="type">'+esc(x.type.replace("_"," "))+'</div><div class="title">'+esc(label||"Recorded activity")+'</div></div><div class="time">'+esc(fmt(x.at))+'</div></div>'+(status?'<div class="meta">Stage/state/result: <strong>'+esc(stageLabels[status]||status)+'</strong></div>':'')+'</div>'}).join("")
 }
 function renderWorkflow(work){
@@ -301,13 +311,23 @@ const box=q("commerce-workflow");if(!work){box.classList.add("hidden");return}bo
 const stage=work.workflow_stage||"ORDER_RECEIVED";q("workflow-stage").textContent=stageLabels[stage]||stage;q("workflow-next").textContent=work.next_action?"Next action: "+work.next_action.replaceAll("-"," "):"No further operational action";
 q("workflow-work-state").className=pill(work.state);q("workflow-work-state").textContent=work.state||"OPEN";
 const idx=commerceStages.indexOf(stage);q("stagebar").innerHTML=commerceStages.map((s,n)=>'<span class="'+(n<idx?"done":n===idx?"current":"")+'" title="'+esc(stageLabels[s])+'"></span>').join("");
-const actions=[];if(nextStage[stage])actions.push('<button class="advance" data-stage="'+nextStage[stage]+'">'+esc(nextLabels[nextStage[stage]])+'</button>');if(!["COMPLETED","CANCELLED","REFUNDED","EXCEPTION"].includes(stage))actions.push('<button class="exception" data-stage="EXCEPTION">Flag exception</button>');
+const actions=[];if(nextStage[stage]&&stage!=="READY_FOR_COURIER")actions.push('<button class="advance" data-stage="'+nextStage[stage]+'">'+esc(nextLabels[nextStage[stage]])+'</button>');if(!["COMPLETED","CANCELLED","REFUNDED","EXCEPTION"].includes(stage))actions.push('<button class="exception" data-stage="EXCEPTION">Flag exception</button>');
 q("workflow-actions").innerHTML=actions.join("");q("workflow-actions").querySelectorAll("button[data-stage]").forEach(b=>b.onclick=()=>transitionCommerce(b.dataset.stage))
 }
-async function transitionCommerce(stage){
+function renderDispatch(work){
+const box=q("courier-dispatch");if(!work||!["READY_FOR_COURIER","COURIER_ASSIGNED","COURIER_ACCEPTED","PICKED_UP","DELIVERED","COMPLETED"].includes(work.workflow_stage)){box.classList.add("hidden");return}
+box.classList.remove("hidden");const form=q("dispatch-form");const courier=work.courier||null;
+if(work.workflow_stage==="READY_FOR_COURIER"){q("dispatch-current").innerHTML='<strong>Awaiting courier assignment</strong><div class="dispatchmeta">Assign a courier before the order can leave the shop.</div>';form.classList.remove("hidden");q("assign-courier").onclick=assignCourier;return}
+form.classList.add("hidden");const status=work.dispatch_status||"ASSIGNED";q("dispatch-current").innerHTML='<div class="dispatchname">'+esc(courier?.name||"Courier")+'</div><div class="dispatchmeta">ID: '+esc(courier?.id||"—")+' · '+esc(status.replaceAll("_"," ").toLowerCase())+'</div><div class="dispatchmeta">Assigned: '+esc(fmt(work.courier_assigned_at))+(work.courier_accepted_at?' · Accepted: '+esc(fmt(work.courier_accepted_at)):'')+(work.picked_up_at?' · Picked up: '+esc(fmt(work.picked_up_at)):'')+(work.delivered_at?' · Delivered: '+esc(fmt(work.delivered_at)):'')+'</div>'
+}
+async function assignCourier(){
+const id=q("courier-id").value.trim(),name=q("courier-name").value.trim();if(!id||!name){showError("Courier ID and courier name are required.");return}
+await transitionCommerce("COURIER_ASSIGNED",{courier:{id,name}})
+}
+async function transitionCommerce(stage,extra={}){
 if(!currentId)return;clearError();const isException=stage==="EXCEPTION";let reason=null;if(isException){reason=prompt("Reason for exception / customer impact:");if(!reason)return}
 const buttons=[...q("workflow-actions").querySelectorAll("button")];buttons.forEach(b=>b.disabled=true);
-try{const r=await fetch("/api/transactions/"+encodeURIComponent(currentId)+"/commerce-transition",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({stage,reason})});const b=await r.json();if(!r.ok){showError(b.error||b.message||"Commerce transition failed");return}
+try{const r=await fetch("/api/transactions/"+encodeURIComponent(currentId)+"/commerce-transition",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({stage,reason,...extra})});const b=await r.json();if(!r.ok){showError(b.error||b.message||"Commerce transition failed");return}
 q("workflow-notice").textContent=(b.deduplicated?"Already recorded: ":"Recorded: ")+(stageLabels[b.work_item?.workflow_stage]||b.work_item?.workflow_stage||stage);q("workflow-notice").classList.remove("hidden");await loadQueue();await openTransaction(currentId)
 }finally{buttons.forEach(b=>b.disabled=false)}
 }
