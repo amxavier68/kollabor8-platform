@@ -1,0 +1,18 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://kollabor8.net.au/schemas/workforce-agent.schema.json",
+  "title":"K8 Workforce Agent",
+  "type":"object",
+  "required":["agent_id","seat_id","runtime","status","allowed_skills","allowed_tools","policy_profile","commissioning_version"],
+  "properties":{
+    "agent_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]+$"},
+    "seat_id":{"type":"string","minLength":1},
+    "runtime":{"type":"object","required":["type"],"properties":{"type":{"enum":["llm","worker","human","service"]},"provider":{"type":["string","null"]},"model":{"type":["string","null"]},"version":{"type":["string","null"]}},"additionalProperties":false},
+    "status":{"enum":["draft","testing","commissioned","suspended","retired"]},
+    "allowed_skills":{"type":"array","items":{"type":"string"}},
+    "allowed_tools":{"type":"array","items":{"type":"string"}},
+    "policy_profile":{"type":"string","minLength":1},
+    "commissioning_version":{"type":"string","minLength":1}
+  },
+  "additionalProperties":false
+}

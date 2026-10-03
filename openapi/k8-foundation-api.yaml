@@ -1,0 +1,183 @@
+openapi: 3.1.0
+info:
+  title: K8 Platform Foundation API
+  version: 0.1.0
+  description: Contract-first API for Pulse events, Delivery work items, approvals and Atlas evidence.
+servers:
+  - url: https://example.invalid
+    description: Placeholder only; no production endpoint is commissioned by this spec.
+paths:
+  /api/v1/events:
+    post:
+      summary: Ingest a Pulse event
+      operationId: ingestEvent
+      responses:
+        "202":
+          description: Event accepted or deduplicated
+        "400":
+          description: Invalid event envelope
+        "409":
+          description: Conflicting idempotency key
+  /api/v1/events/{eventId}:
+    get:
+      summary: Read event state
+      operationId: getEvent
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Event state }
+        "404": { description: Not found }
+  /api/v1/events/{eventId}/replay:
+    post:
+      summary: Request a safe replay
+      operationId: replayEvent
+      parameters:
+        - in: path
+          name: eventId
+          required: true
+          schema: { type: string }
+      responses:
+        "202": { description: Replay accepted after policy evaluation }
+        "409": { description: Replay unsafe or unavailable }
+  /api/v1/work-items:
+    post:
+      summary: Create a Delivery OS work item
+      operationId: createWorkItem
+      responses:
+        "201": { description: Work item created }
+  /api/v1/approvals:
+    post:
+      summary: Record an approval decision
+      operationId: recordApproval
+      responses:
+        "201": { description: Approval recorded }
+  /api/v1/evidence:
+    get:
+      summary: Read Atlas evidence by event or correlation
+      operationId: findEvidence
+      parameters:
+        - in: query
+          name: event_id
+          schema: { type: string }
+        - in: query
+          name: correlation_id
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200": { description: Matching evidence records }
+        "400": { description: event_id or correlation_id is required }
+        "401": { description: API key missing or invalid }
+    post:
+      summary: Append an Atlas evidence record
+      operationId: appendEvidence
+      responses:
+        "201": { description: Evidence appended }
+        "409": { description: Immutable record conflict }
+  /api/v1/evidence/{evidenceId}:
+    get:
+      summary: Read one Atlas evidence record
+      operationId: getEvidence
+      parameters:
+        - in: path
+          name: evidenceId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Evidence record }
+        "401": { description: API key missing or invalid }
+        "404": { description: Evidence record not found }
+  /api/v1/ingress/woocommerce/sandbox/orders:
+    post:
+      summary: Ingest a WooCommerce-shaped sandbox order into Pulse
+      operationId: ingestWooCommerceSandboxOrder
+      responses:
+        "202": { description: Sandbox order accepted into Pulse }
+        "400": { description: Invalid WooCommerce sandbox order }
+        "401": { description: API key missing or invalid }
+        "404": { description: Sandbox ingress disabled }
+  /api/v1/ingress/woocommerce/sandbox/demo-order:
+    post:
+      summary: Create one synthetic WooCommerce sandbox order
+      operationId: createWooCommerceSandboxDemoOrder
+      responses:
+        "202": { description: Synthetic sandbox order created }
+        "401": { description: API key missing or invalid }
+        "404": { description: Sandbox ingress disabled }
+  /api/v1/ingress/woocommerce/orders:
+    post:
+      summary: Receive a signed WooCommerce order webhook
+      operationId: ingestWooCommerceOrder
+      responses:
+        "202": { description: Order observed and mapped into Pulse }
+        "400": { description: Invalid WooCommerce order payload }
+        "401": { description: Invalid WooCommerce webhook signature }
+        "503": { description: WooCommerce ingress not configured }
+  /api/v1/operations/transactions:
+    get:
+      summary: List recent Operations Control service transactions
+      operationId: listOperationsTransactions
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - in: query
+          name: state
+          schema: { type: string }
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        "200": { description: Service queue with party, request, state and activity context }
+        "401": { description: API key missing or invalid }
+  /api/v1/operations/transactions/{correlationId}:
+    get:
+      summary: Read a correlated Operations Control transaction view
+      operationId: getOperationsTransaction
+      parameters:
+        - in: path
+          name: correlationId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Correlated transaction timeline }
+        "401": { description: API key missing or invalid }
+        "404": { description: Transaction not found }
+  /api/v1/operations/transactions/{correlationId}/interventions:
+    post:
+      summary: Create a governed support mediation work item
+      operationId: createOperationsIntervention
+      parameters:
+        - in: path
+          name: correlationId
+          required: true
+          schema: { type: string }
+      responses:
+        "201": { description: Intervention work item created }
+        "400": { description: Invalid intervention request }
+        "401": { description: API key missing or invalid }
+        "404": { description: Transaction not found }
+components:
+  schemas:
+    ApprovalLevel:
+      type: string
+      enum: [A0, A1, A2, A3]
+    RuntimeState:
+      type: string
+      enum:
+        - RECEIVED
+        - VALIDATED
+        - ROUTED
+        - AWAITING_APPROVAL
+        - RUNNING
+        - DEGRADED
+        - BLOCKED
+        - SAFE_STOP
+        - FAILED_RECOVERABLE
+        - FAILED_MANUAL
+        - COMPLETED
+        - DEAD_LETTER

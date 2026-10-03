@@ -1,0 +1,293 @@
+{
+  "context_id": "ctx_kollabor8_v1",
+  "organisation_id": "org_kollabor8",
+  "version": 1,
+  "status": "draft",
+  "valid_from": null,
+  "created_at": "2026-10-03T00:00:00+10:00",
+  "created_by": "Anthony Xavier",
+  "change_reason": "Establish Kollabor8 as Client Zero for the K8 Business OS foundation runtime.",
+  "source_refs": [
+    "owner-approved K8 architecture",
+    "kollabor8-platform foundation contracts",
+    "k8-ai-workforce governance repository"
+  ],
+  "organisation": {
+    "name": "Kollabor8 Web Collectives",
+    "trading_name": "Kollabor8",
+    "website": "https://kollabor8.net.au",
+    "market": "Australian SMB",
+    "operating_model": "SEO, web, AI and automation studio"
+  },
+  "brand": {
+    "positioning": "Evidence-led authority building through connected growth systems.",
+    "principles": [
+      "strategic not spammy",
+      "persuasive not pushy",
+      "authority building",
+      "human accountable AI",
+      "evidence before claims"
+    ]
+  },
+  "products_services": [
+    {
+      "name": "SEO audits and campaigns",
+      "category": "search"
+    },
+    {
+      "name": "website strategy and development",
+      "category": "web"
+    },
+    {
+      "name": "AI and workflow automation",
+      "category": "automation"
+    },
+    {
+      "name": "K8 Scan",
+      "category": "diagnostic"
+    },
+    {
+      "name": "K8 Business OS",
+      "category": "operating-system",
+      "status": "foundation"
+    }
+  ],
+  "ideal_customers": [
+    {
+      "segment": "startups",
+      "need": "credible visibility and scalable foundations"
+    },
+    {
+      "segment": "solopreneurs",
+      "need": "clear systems without technical overload"
+    },
+    {
+      "segment": "growth-focused agencies",
+      "need": "specialist SEO, automation and delivery leverage"
+    }
+  ],
+  "offers": [],
+  "business_model": {
+    "direction": "diagnostic to implementation to managed optimisation",
+    "commercial_ladder": [
+      "diagnose",
+      "decide",
+      "deliver",
+      "measure"
+    ]
+  },
+  "goals": [
+    {
+      "id": "goal-authority",
+      "name": "Build defensible authority in SEO, AI-search visibility, automation and governed AI delivery"
+    },
+    {
+      "id": "goal-productise",
+      "name": "Productise repeatable K8 workflows into versioned skills and managed services"
+    },
+    {
+      "id": "goal-evidence",
+      "name": "Make evidence and provenance first-class in every K8 workflow"
+    },
+    {
+      "id": "goal-scale",
+      "name": "Scale delivery capacity without sacrificing human accountability or quality"
+    }
+  ],
+  "current_constraints": [
+    {
+      "name": "commercial proof",
+      "detail": "Architecture and capability are ahead of broad commercial case-study depth."
+    },
+    {
+      "name": "runtime maturity",
+      "detail": "K8 Business OS foundation runtime is commissioned in staging; first Client Zero workflow is being routed through Pulse."
+    },
+    {
+      "name": "complexity",
+      "detail": "Internal capability must be compressed into simple customer-facing language."
+    }
+  ],
+  "competitors": [],
+  "technology": [
+    {
+      "name": "MongoDB Atlas",
+      "role": "persistent context, state and evidence"
+    },
+    {
+      "name": "Render",
+      "role": "runtime APIs, workers and scheduled execution"
+    },
+    {
+      "name": "GitHub",
+      "role": "source truth for code, skills, policy and CI/CD"
+    },
+    {
+      "name": "ChatGPT",
+      "role": "primary reasoning, orchestration and owner interaction"
+    },
+    {
+      "name": "MERN",
+      "role": "default application stack"
+    },
+    {
+      "name": "Vite",
+      "role": "frontend build tooling"
+    },
+    {
+      "name": "Zustand",
+      "role": "frontend state"
+    },
+    {
+      "name": "TailwindCSS",
+      "role": "frontend styling"
+    },
+    {
+      "name": "Stripe",
+      "role": "payments"
+    }
+  ],
+  "people": [
+    {
+      "role": "Owner",
+      "authority": "final strategic approval"
+    },
+    {
+      "role": "K8 Workforce",
+      "authority": "bounded by commissioned Seat, Skill, Tool and Policy contracts"
+    }
+  ],
+  "channels": [
+    {
+      "name": "website",
+      "type": "owned"
+    },
+    {
+      "name": "organic search",
+      "type": "acquisition"
+    },
+    {
+      "name": "AI search",
+      "type": "acquisition"
+    },
+    {
+      "name": "email",
+      "type": "owned"
+    },
+    {
+      "name": "social",
+      "type": "owned-earned"
+    }
+  ],
+  "sales_process": {},
+  "delivery_process": {
+    "model": "Discover -> Decide -> Deliver -> Measure",
+    "gates": [
+      "diagnostic evidence",
+      "owner/client decision",
+      "governed execution",
+      "validation",
+      "evidence closure"
+    ]
+  },
+  "marketing_process": {
+    "north_star": "authority building",
+    "constraints": [
+      "no unsupported proof",
+      "no manipulative urgency",
+      "no spammy SEO"
+    ]
+  },
+  "tone_voice": {
+    "style": [
+      "clear",
+      "confident",
+      "conversational",
+      "strategic"
+    ],
+    "avoid": [
+      "hype without evidence",
+      "technical clutter as a value proposition"
+    ]
+  },
+  "legal_privacy_constraints": [
+    {
+      "name": "privacy",
+      "rule": "Do not place credentials, sensitive client information or secrets in public repositories."
+    },
+    {
+      "name": "human authority",
+      "rule": "Destructive, financial and privileged actions require policy-defined approval."
+    }
+  ],
+  "authority_rules": [
+    {
+      "id": "A0",
+      "meaning": "automatic read-only or low-risk deterministic action"
+    },
+    {
+      "id": "A1",
+      "meaning": "permitted action plus notification"
+    },
+    {
+      "id": "A2",
+      "meaning": "approval required before external communication, publication or production mutation"
+    },
+    {
+      "id": "A3",
+      "meaning": "dual validation for destructive, financial, privileged or high-risk action"
+    }
+  ],
+  "kpis": [
+    {
+      "name": "qualified visibility",
+      "status": "define-baseline"
+    },
+    {
+      "name": "lead conversion",
+      "status": "define-baseline"
+    },
+    {
+      "name": "delivery cycle time",
+      "status": "define-baseline"
+    },
+    {
+      "name": "evidence-complete workflow rate",
+      "status": "define-baseline"
+    }
+  ],
+  "known_claims": [],
+  "evidence": [],
+  "active_projects": [
+    {
+      "name": "K8 Business OS foundation runtime",
+      "status": "foundation"
+    },
+    {
+      "name": "K8 Scan",
+      "status": "active"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "Seat",
+      "definition": "durable organisational responsibility"
+    },
+    {
+      "term": "Agent",
+      "definition": "replaceable runtime implementing a Seat responsibility"
+    },
+    {
+      "term": "Skill",
+      "definition": "versioned and testable reusable procedure"
+    },
+    {
+      "term": "Pulse",
+      "definition": "operational control plane for governed event state, routing, acknowledgement, recovery and coordination; its UI is the human-facing shop/customer/courier layer"
+    },
+    {
+      "term": "Atlas",
+      "definition": "evidence and provenance authority"
+    }
+  ]
+}

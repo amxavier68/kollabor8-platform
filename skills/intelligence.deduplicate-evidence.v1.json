@@ -1,0 +1,26 @@
+{
+  "skill_id":"intelligence.deduplicate-evidence",
+  "name":"Deduplicate Intelligence Evidence",
+  "version":"1.0.0",
+  "owner_seat":"search-intelligence",
+  "purpose":"Remove repeated reporting of the same underlying development while preserving the strongest provenance.",
+  "status":"draft",
+  "inputs":[{"name":"source_set","required":true}],
+  "preconditions":[{"check":"source records contain provenance and dates"}],
+  "permitted_tools":["atlas.evidence.read","atlas.evidence.write"],
+  "policy_profile":"research.readonly.v1",
+  "steps":[
+    {"order":1,"action":"group sources by underlying event or change"},
+    {"order":2,"action":"prefer primary or higher-authority provenance"},
+    {"order":3,"action":"retain corroboration references without duplicating briefing items"},
+    {"order":4,"action":"record deduplication decision as evidence"}
+  ],
+  "outputs":[{"name":"deduplicated_source_set","type":"evidence-reference-list"}],
+  "side_effects":["append evidence records"],
+  "evidence_required":[{"type":"dedupe-decision"}],
+  "validation":[{"rule":"no two retained items represent the same underlying development"}],
+  "stop_conditions":[{"condition":"source identity is too ambiguous to merge safely"}],
+  "failure_handling":{"mode":"degraded","action":"retain both and flag ambiguity"},
+  "last_tested_at":null,
+  "test_suite_ref":"test/skills/intelligence.deduplicate-evidence.test.json"
+}

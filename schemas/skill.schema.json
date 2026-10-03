@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kollabor8.net.au/schemas/skill.schema.json",
+  "title": "K8 Skill",
+  "type": "object",
+  "required": ["skill_id","name","version","owner_seat","purpose","status","inputs","preconditions","permitted_tools","steps","outputs","evidence_required","validation","stop_conditions","failure_handling"],
+  "properties": {
+    "skill_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]+$"},
+    "name":{"type":"string","minLength":1},
+    "version":{"type":"string","pattern":"^\\d+\\.\\d+\\.\\d+$"},
+    "owner_seat":{"type":"string","minLength":1},
+    "purpose":{"type":"string","minLength":1},
+    "status":{"enum":["draft","tested","commissioned","deprecated"]},
+    "inputs":{"type":"array","items":{"type":"object"}},
+    "preconditions":{"type":"array","items":{"type":"object"}},
+    "permitted_tools":{"type":"array","items":{"type":"string"}},
+    "policy_profile":{"type":["string","null"]},
+    "steps":{"type":"array","minItems":1,"items":{"type":"object"}},
+    "outputs":{"type":"array","items":{"type":"object"}},
+    "side_effects":{"type":"array","items":{"type":"string"}},
+    "evidence_required":{"type":"array","items":{"type":"object"}},
+    "validation":{"type":"array","items":{"type":"object"}},
+    "stop_conditions":{"type":"array","items":{"type":"object"}},
+    "failure_handling":{"type":"object"},
+    "last_tested_at":{"type":["string","null"],"format":"date-time"},
+    "test_suite_ref":{"type":["string","null"]}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,142 @@
+import crypto from "node:crypto";
+
+function text(value, fallback = "") {
+  return String(value ?? fallback).trim();
+}
+
+function customerName(order) {
+  const billing = order.billing ?? {};
+  const full = [billing.first_name, billing.last_name].map((v) => text(v)).filter(Boolean).join(" ");
+  return full || text(billing.company) || text(billing.email) || `Woo customer ${order.customer_id ?? order.id ?? "unknown"}`;
+}
+
+function itemSummary(order) {
+  const items = Array.isArray(order.line_items) ? order.line_items : [];
+  if (!items.length) return "WooCommerce order";
+  const names = items.slice(0, 3).map((item) => text(item.name)).filter(Boolean);
+  const extra = items.length > 3 ? ` +${items.length - 3} more` : "";
+  return names.length ? `${names.join(", ")}${extra}` : "WooCommerce order";
+}
+
+function normalisedStatus(status) {
+  return text(status, "pending").toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+}
+
+function iso(value, fallback) {
+  if (!value) return fallback;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? fallback : date.toISOString();
+}
+
+export class WooCommerceSandboxService {
+  constructor(events, env = process.env) {
+    this.events = events;
+    this.env = env;
+  }
+
+  enabled() {
+    return this.env.K8_WOOCOMMERCE_SANDBOX === "true";
+  }
+
+  async ingestOrder(order = {}) {
+    if (!this.enabled()) return { type: "disabled" };
+    if (!order.id) return { type: "invalid", error: "woocommerce_order_id_required" };
+
+    const now = new Date().toISOString();
+    const status = normalisedStatus(order.status);
+    const orderId = String(order.id);
+    const orderNumber = text(order.number, orderId);
+    const modified = iso(order.date_modified_gmt ?? order.date_modified, now);
+    const eventId = `evt_woo_${orderId}_${crypto.createHash("sha1").update(`${status}:${modified}`).digest("hex").slice(0, 12)}`;
+
+    const event = {
+      event_id: eventId,
+      event_name: "commerce.order.observed",
+      version: 1,
+      organisation_id: this.env.K8_WOOCOMMERCE_ORGANISATION_ID ?? "org_kollabor8",
+      client_id: this.env.K8_WOOCOMMERCE_CLIENT_ID ?? "client_woocommerce_sandbox",
+      project_id: this.env.K8_WOOCOMMERCE_PROJECT_ID ?? "project_woocommerce_sandbox",
+      occurred_at: iso(order.date_created_gmt ?? order.date_created, now),
+      received_at: now,
+      source: {
+        type: "woocommerce",
+        id: this.env.K8_WOOCOMMERCE_STORE_ID ?? "woocommerce-sandbox",
+        mode: "sandbox"
+      },
+      actor: { type: "service", id: "woocommerce-sandbox-adapter" },
+      subject: { type: "order", id: orderId },
+      correlation_id: `woocommerce:order:${orderId}`,
+      causation_id: null,
+      trace_id: null,
+      environment: this.env.K8_ENVIRONMENT ?? "staging",
+      payload: {
+        order_id: order.id,
+        order_number: orderNumber,
+        status,
+        currency: order.currency ?? null,
+        total: order.total ?? null,
+        payment_method: order.payment_method_title ?? order.payment_method ?? null,
+        shipping_method: Array.isArray(order.shipping_lines)
+          ? order.shipping_lines.map((line) => line.method_title ?? line.method_id).filter(Boolean)
+          : [],
+        line_items: Array.isArray(order.line_items)
+          ? order.line_items.map((item) => ({
+              product_id: item.product_id ?? null,
+              variation_id: item.variation_id ?? null,
+              name: item.name ?? null,
+              quantity: item.quantity ?? null,
+              total: item.total ?? null
+            }))
+          : []
+      },
+      metadata: {
+        adapter: "woocommerce-sandbox-v1",
+        synthetic: Boolean(order.__synthetic)
+      },
+      service_context: {
+        party_type: "customer",
+        party_id: order.customer_id ? `woo_customer_${order.customer_id}` : `woo_guest_order_${orderId}`,
+        display_name: customerName(order),
+        request_type: "WooCommerce order",
+        request_reference: `Order #${orderNumber}`,
+        summary: `${itemSummary(order)} · ${status}`,
+        channel: "woocommerce",
+        priority: "normal",
+        sla_due_at: null
+      },
+      sensitivity: "confidential",
+      retention_class: "operational",
+      idempotency_key: `woocommerce:order:${orderId}:${status}:${modified}`
+    };
+
+    return this.events.ingest(event);
+  }
+
+  async createDemoOrder() {
+    if (!this.enabled()) return { type: "disabled" };
+    const stamp = Date.now();
+    const orderId = Number(String(stamp).slice(-7));
+    return this.ingestOrder({
+      __synthetic: true,
+      id: orderId,
+      number: `S-${orderId}`,
+      status: "processing",
+      currency: "AUD",
+      total: "129.00",
+      customer_id: orderId,
+      date_created_gmt: new Date().toISOString(),
+      date_modified_gmt: new Date().toISOString(),
+      billing: {
+        first_name: "Sophie",
+        last_name: "Hart",
+        email: "sophie.sandbox@example.invalid"
+      },
+      line_items: [
+        { product_id: 101, name: "Seasonal Floral Arrangement", quantity: 1, total: "99.00" },
+        { product_id: 202, name: "Gift Add-on", quantity: 1, total: "30.00" }
+      ],
+      shipping_lines: [{ method_title: "Local delivery" }],
+      payment_method_title: "Sandbox payment"
+    });
+  }
+}

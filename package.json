@@ -1,0 +1,24 @@
+{
+  "name": "kollabor8-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "K8 Business OS runtime foundation",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js",
+    "check": "node --check src/server.js && npm --prefix operations-control run check && npm --prefix courier-control run check && npm run validate:contracts && npm test",
+    "validate:contracts": "node scripts/validate-contracts.js",
+    "prestart": "node --check src/server.js && npm run validate:contracts"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "express": "^5.1.0",
+    "mongodb": "^6.20.0",
+    "helmet": "^8.1.0"
+  }
+}

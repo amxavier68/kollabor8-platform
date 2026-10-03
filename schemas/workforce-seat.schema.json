@@ -1,0 +1,21 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://kollabor8.net.au/schemas/workforce-seat.schema.json",
+  "title":"K8 Workforce Seat",
+  "type":"object",
+  "required":["seat_id","name","purpose","accountable_owner","responsibilities","exclusions","default_approval_level","evidence_obligations","status"],
+  "properties":{
+    "seat_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]+$"},
+    "name":{"type":"string","minLength":1},
+    "purpose":{"type":"string","minLength":1},
+    "accountable_owner":{"type":"string","minLength":1},
+    "responsibilities":{"type":"array","minItems":1,"items":{"type":"string"}},
+    "exclusions":{"type":"array","items":{"type":"string"}},
+    "inbound_handoffs":{"type":"array","items":{"type":"string"}},
+    "outbound_handoffs":{"type":"array","items":{"type":"string"}},
+    "default_approval_level":{"enum":["A0","A1","A2","A3"]},
+    "evidence_obligations":{"type":"array","items":{"type":"string"}},
+    "status":{"enum":["draft","commissioned","suspended","retired"]}
+  },
+  "additionalProperties":false
+}
