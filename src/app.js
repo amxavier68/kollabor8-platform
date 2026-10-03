@@ -242,9 +242,50 @@ export function createApp(store, env = process.env) {
         });
       }
       if (result.type === "deduplicated") return res.status(200).json({ deduplicated: true, work_item: result.workItem });
-      return res.status(200).json({ deduplicated: false, work_item: result.workItem });
+      return res.status(200).json({
+        deduplicated: false,
+        work_item: result.workItem,
+        ...(result.courierAccessToken ? { courier_access_token: result.courierAccessToken } : {})
+      });
     } catch (error) { next(error); }
   });
+
+  function courierToken(req) {
+    const auth = String(req.get("authorization") ?? "");
+    return auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  }
+
+  app.get("/api/v1/courier/jobs/:correlationId", async (req, res, next) => {
+    try {
+      const result = await commerce.courierJob(req.params.correlationId, courierToken(req));
+      if (result.type === "not_found") return res.status(404).json({ error: "courier_job_not_found" });
+      if (result.type === "unauthorised") return res.status(401).json({ error: "invalid_or_expired_courier_token" });
+      return res.json({ job: result.job });
+    } catch (error) { next(error); }
+  });
+
+  for (const [action, stage] of Object.entries({
+    accept: "COURIER_ACCEPTED",
+    pickup: "PICKED_UP",
+    deliver: "DELIVERED"
+  })) {
+    app.post(`/api/v1/courier/jobs/:correlationId/${action}`, async (req, res, next) => {
+      try {
+        const result = await commerce.courierTransition(req.params.correlationId, courierToken(req), stage);
+        if (result.type === "not_found") return res.status(404).json({ error: "courier_job_not_found" });
+        if (result.type === "unauthorised") return res.status(401).json({ error: "invalid_or_expired_courier_token" });
+        if (result.type === "invalid") return res.status(400).json({ error: "invalid_courier_action" });
+        if (result.type === "unsafe") {
+          return res.status(409).json({
+            error: "courier_action_not_permitted",
+            current_stage: result.current,
+            requested_stage: result.target
+          });
+        }
+        return res.json({ work_item: result.workItem });
+      } catch (error) { next(error); }
+    });
+  }
 
   app.post("/api/v1/operations/transactions/:correlationId/interventions", guard, async (req, res, next) => {
     try {

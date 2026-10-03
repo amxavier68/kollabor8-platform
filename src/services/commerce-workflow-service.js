@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 const TERMINAL_STAGES = new Set(["COMPLETED", "CANCELLED", "REFUNDED"]);
 const ACTIVE_RANK = new Map([
   ["ORDER_RECEIVED", 0],
@@ -111,6 +113,7 @@ export class CommerceWorkflowService {
       client_name: event.service_context?.client_name ?? null,
       customer_name: event.service_context?.display_name ?? null,
       order_reference: event.service_context?.request_reference ?? null,
+      delivery_destination: event.payload?.delivery ?? current?.delivery_destination ?? null,
       updated_at: now
     };
 
@@ -173,11 +176,16 @@ export class CommerceWorkflowService {
     }
 
     const dispatchPatch = {};
+    let courierAccessToken = null;
     if (target === "COURIER_ASSIGNED") {
+      courierAccessToken = crypto.randomBytes(24).toString("base64url");
+      const accessHash = crypto.createHash("sha256").update(courierAccessToken).digest("hex");
       dispatchPatch.courier = {
         id: String(courierInput.id).trim(),
         name: String(courierInput.name).trim()
       };
+      dispatchPatch.courier_access_hash = accessHash;
+      dispatchPatch.courier_access_expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       dispatchPatch.dispatch_status = "AWAITING_ACCEPTANCE";
       dispatchPatch.courier_assigned_at = now;
       dispatchPatch.courier_accepted_at = null;
@@ -218,6 +226,58 @@ export class CommerceWorkflowService {
         : `${current} -> ${target}`)
     });
 
-    return { type: "accepted", workItem: updated };
+    return { type: "accepted", workItem: updated, courierAccessToken };
+  }
+
+  async courierJob(correlationId, token) {
+    const workItems = await this.store.findWorkItemsByCorrelation(correlationId);
+    const workItem = workItems.find((item) => item.workflow_type === "commerce_order");
+    if (!workItem) return { type: "not_found" };
+    if (!this.validCourierToken(workItem, token)) return { type: "unauthorised" };
+    return {
+      type: "accepted",
+      job: {
+        correlation_id: correlationId,
+        order_reference: workItem.order_reference,
+        customer_name: workItem.customer_name,
+        workflow_stage: workItem.workflow_stage,
+        dispatch_status: workItem.dispatch_status ?? null,
+        courier: workItem.courier ?? null,
+        delivery_destination: workItem.delivery_destination ?? null,
+        courier_assigned_at: workItem.courier_assigned_at ?? null,
+        courier_accepted_at: workItem.courier_accepted_at ?? null,
+        picked_up_at: workItem.picked_up_at ?? null,
+        delivered_at: workItem.delivered_at ?? null
+      }
+    };
+  }
+
+  validCourierToken(workItem, token) {
+    if (!token || !workItem.courier_access_hash || !workItem.courier_access_expires_at) return false;
+    if (new Date(workItem.courier_access_expires_at).getTime() <= Date.now()) return false;
+    const supplied = crypto.createHash("sha256").update(String(token)).digest("hex");
+    const left = Buffer.from(supplied, "hex");
+    const right = Buffer.from(String(workItem.courier_access_hash), "hex");
+    return left.length === right.length && left.length > 0 && crypto.timingSafeEqual(left, right);
+  }
+
+  async courierTransition(correlationId, token, target) {
+    const workItems = await this.store.findWorkItemsByCorrelation(correlationId);
+    const workItem = workItems.find((item) => item.workflow_type === "commerce_order");
+    if (!workItem) return { type: "not_found" };
+    if (!this.validCourierToken(workItem, token)) return { type: "unauthorised" };
+    const allowed = {
+      COURIER_ACCEPTED: "COURIER_ASSIGNED",
+      PICKED_UP: "COURIER_ACCEPTED",
+      DELIVERED: "PICKED_UP"
+    };
+    if (!allowed[target]) return { type: "invalid" };
+    if (workItem.workflow_stage !== allowed[target]) {
+      return { type: "unsafe", current: workItem.workflow_stage, target };
+    }
+    return this.transition(correlationId, {
+      stage: target,
+      actor: { type: "courier", id: workItem.courier?.id ?? "assigned-courier" }
+    });
   }
 }
