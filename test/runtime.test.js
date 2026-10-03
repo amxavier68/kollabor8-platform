@@ -495,3 +495,99 @@ test("WooCommerce activation ping is accepted without signature", async () => {
     assert.equal(body.acknowledged, "woocommerce_activation_ping");
   }, { K8_WOOCOMMERCE_WEBHOOK_SECRET: "woo-test-secret" });
 });
+
+
+test("PTTM commissioning flow keeps one transaction across order update and duplicate delivery", async () => {
+  await withServer(async ({ base }) => {
+    const secret = "woo-test-secret";
+    const baseOrder = {
+      id: 9201,
+      number: "9201",
+      currency: "AUD",
+      total: "165.00",
+      customer_id: 701,
+      billing: { first_name: "Test", last_name: "Customer" },
+      line_items: [{ product_id: 401, name: "PTTM Test Arrangement", quantity: 1, total: "165.00" }],
+      shipping_lines: [{ method_title: "Local delivery" }]
+    };
+
+    async function send(order) {
+      const raw = JSON.stringify(order);
+      const signature = crypto.createHmac("sha256", secret).update(raw).digest("base64");
+      return fetch(`${base}/api/v1/ingress/woocommerce/orders`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-wc-webhook-signature": signature,
+          "x-wc-webhook-topic": "order.updated",
+          "x-wc-webhook-resource": "order"
+        },
+        body: raw
+      });
+    }
+
+    const processingOrder = {
+      ...baseOrder,
+      status: "processing",
+      date_created_gmt: "2026-10-03T00:20:00Z",
+      date_modified_gmt: "2026-10-03T00:21:00Z"
+    };
+
+    const first = await send(processingOrder);
+    assert.equal(first.status, 202);
+    const firstBody = await first.json();
+    assert.equal(firstBody.deduplicated, false);
+    assert.equal(firstBody.event.correlation_id, "woocommerce:order:9201");
+
+    const duplicate = await send(processingOrder);
+    assert.equal(duplicate.status, 202);
+    const duplicateBody = await duplicate.json();
+    assert.equal(duplicateBody.deduplicated, true);
+
+    const completedOrder = {
+      ...baseOrder,
+      status: "completed",
+      date_created_gmt: "2026-10-03T00:20:00Z",
+      date_modified_gmt: "2026-10-03T00:31:00Z"
+    };
+
+    const updated = await send(completedOrder);
+    assert.equal(updated.status, 202);
+    const updatedBody = await updated.json();
+    assert.equal(updatedBody.deduplicated, false);
+    assert.equal(updatedBody.event.correlation_id, "woocommerce:order:9201");
+
+    const queueResponse = await fetch(`${base}/api/v1/operations/transactions?search=9201`);
+    assert.equal(queueResponse.status, 200);
+    const queue = await queueResponse.json();
+    assert.equal(queue.queue.count, 1);
+    assert.equal(queue.queue.items[0].client_name, "Petals to the Metal");
+    assert.equal(queue.queue.items[0].display_name, "Test Customer");
+    assert.equal(queue.queue.items[0].request_type, "Floral order");
+    assert.equal(queue.queue.items[0].request_reference, "Order #9201");
+    assert.equal(queue.queue.items[0].workflow_status, "completed");
+
+    const transactionResponse = await fetch(
+      `${base}/api/v1/operations/transactions/${encodeURIComponent("woocommerce:order:9201")}`
+    );
+    assert.equal(transactionResponse.status, 200);
+    const transaction = (await transactionResponse.json()).transaction;
+    assert.equal(transaction.correlation_id, "woocommerce:order:9201");
+    assert.equal(transaction.counts.events, 2);
+    assert.ok(transaction.counts.evidence >= 2);
+    assert.equal(transaction.events.at(-1).service_context.workflow_status, "completed");
+
+    const evidenceResponse = await fetch(
+      `${base}/api/v1/evidence?correlation_id=${encodeURIComponent("woocommerce:order:9201")}`
+    );
+    assert.equal(evidenceResponse.status, 200);
+    const evidence = (await evidenceResponse.json()).evidence;
+    const ingestRecords = evidence.filter((record) => record.action === "pulse.event.ingested");
+    assert.equal(ingestRecords.length, 2);
+  }, {
+    K8_WOOCOMMERCE_WEBHOOK_SECRET: "woo-test-secret",
+    K8_WOOCOMMERCE_CLIENT_NAME: "Petals to the Metal",
+    K8_WOOCOMMERCE_CLIENT_ID: "client_pttm",
+    K8_WOOCOMMERCE_PROJECT_ID: "project_pttm_commerce"
+  });
+});
