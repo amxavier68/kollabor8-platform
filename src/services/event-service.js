@@ -15,7 +15,8 @@ export class EventService {
     const validation = validate("event", event);
     if (!validation.ok) return { type: "invalid", errors: validation.errors };
 
-    const requestHash = contentHash(event);
+    const { received_at: _receivedAt, ...idempotentContent } = event;
+    const requestHash = contentHash(idempotentContent);
     const existing = await this.store.findEventByIdempotency(event.organisation_id, event.idempotency_key);
     if (existing) {
       if (existing.request_hash !== requestHash) return { type: "conflict", event: existing };
